@@ -31,14 +31,14 @@ const thomas = {
 | **Category**       | **Tech**                                                                    |
 | ------------------ | --------------------------------------------------------------------------- |
 | **Frontend**       | React, Next.js, TailwindCSS, SWR, Redis                                     |
-| **Backend**        | Node.js, Express, FastAPI, Django, Supabase, PostgreSQL                     |
-| **Cloud & DevOps** | AWS (Lambda, RDS, API Gateway, IAM, CloudFormation, ECS, EC2), Docker, GitHub Actions |
+| **Backend**        | Node.js, Express, FastAPI, Django, PostgreSQL                     |
+| **Cloud & DevOps** | AWS (Lambda, RDS, DynamoDB, API Gateway, IAM, CloudFormation, ECS, EC2), Docker, GitHub Actions |
 
 ---
 
 ### Projects
 
-- **[Troutlytics](https://github.com/thomas-basham/washington-trout-stats)**  
+- **[Troutlytics](https://github.com/troutlytics/troutlytics-frontend)**  
   Data-driven fishing app with real-time trout stocking insights and analytics.
 
 - **[PS Creel Companion](https://github.com/thomas-basham/ps-creel)**  

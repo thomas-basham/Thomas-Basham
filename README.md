@@ -2,6 +2,7 @@
 
 <p align="center">
 <img width="80"  src="aws-certified-cloud-practitioner.png" alt="AWS CCP badge"/> 
+<img width="80"  src="aws-certified-solutions-architect-associate.png" alt="AWS SAA badge"/> 
 </p>
 
 <p align="center">
@@ -59,7 +60,7 @@ const thomas = {
 
 ### What I'm Up To
 
-- Studying for the AWS Solutions Architect Associate
+- Studying ml and AI concepts
 - Building a cloud-native data pipeline with Fargate + Aurora
 - Mentoring devs and building clean, testable code
 - Saving up for my dream boat

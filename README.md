@@ -20,8 +20,7 @@ const thomas = {
   location: "Renton, WA",
   languages: ["Python", "JavaScript", "TypeScript", "SQL", "Bash"],
   frameworks: ["React", "Next.js", "Node.js", "Express", "Django", "FastAPI"],
-  cloud: ["AWS", "GCP", "Docker"],
-  funFact: "I’ve launched a kayak from more boat ramps than AWS has regions.",
+  cloud: ["AWS", "GCP", "Docker"]
 };
 ```
 
@@ -60,7 +59,7 @@ const thomas = {
 
 ### What I'm Up To
 
-- Studying ml and AI concepts
+- Studying ML and AI concepts
 - Building a cloud-native data pipeline with Fargate + Aurora
 - Mentoring devs and building clean, testable code
 - Saving up for my dream boat

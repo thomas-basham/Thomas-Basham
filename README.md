@@ -20,7 +20,8 @@ const thomas = {
   location: "Renton, WA",
   languages: ["Python", "JavaScript", "TypeScript", "SQL", "Bash"],
   frameworks: ["React", "Next.js", "Node.js", "Express", "Django", "FastAPI"],
-  cloud: ["AWS", "GCP", "Docker"]
+  cloud: ["AWS", "GCP", "Docker"],
+  AI: ["Codex", "Claude Code", "Gemini"],
 };
 ```
 
@@ -28,10 +29,10 @@ const thomas = {
 
 ### Current Stack
 
-| **Category**       | **Tech**                                                                    |
-| ------------------ | --------------------------------------------------------------------------- |
-| **Frontend**       | React, Next.js, TailwindCSS, SWR, Redis                                     |
-| **Backend**        | Node.js, Express, FastAPI, Django, PostgreSQL                     |
+| **Category**       | **Tech**                                                                                        |
+| ------------------ | ----------------------------------------------------------------------------------------------- |
+| **Frontend**       | React, Next.js, TailwindCSS, SWR, Redis                                                         |
+| **Backend**        | Node.js, Express, FastAPI, Django, PostgreSQL                                                   |
 | **Cloud & DevOps** | AWS (Lambda, RDS, DynamoDB, API Gateway, IAM, CloudFormation, ECS, EC2), Docker, GitHub Actions |
 
 ---
@@ -41,8 +42,9 @@ const thomas = {
 - **[Troutlytics](https://github.com/troutlytics/troutlytics-frontend)**  
   Data-driven fishing app with real-time trout stocking insights and analytics.
 
-- **[PS Creel Companion](https://github.com/thomas-basham/ps-creel)**  
+- **[Puget Sound Creel Reports](https://github.com/thomas-basham/ps-creel)**  
   Web app that aggregates and visualizes boat-ramp creel (angler survey) data across Puget Sound.
+
 ---
 
 ### Stats & Activity
@@ -91,11 +93,12 @@ const thomas = {
 
 ### Personal Interests
 
-Fishing Puget Sound  
+River Rafting  
 Kayaking  
+Fishing Puget Sound  
 Teaching Devs  
 Making Music  
-Automating All the Things  
+Automating All the Things
 
 ---
 

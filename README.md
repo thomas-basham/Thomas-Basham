@@ -16,7 +16,7 @@
 ```ts
 const thomas = {
   name: "Thomas Basham",
-  title: "Cloud Developer & Full Stack Engineer",
+  title: "Full Stack Engineer & Cloud Developer",
   location: "Renton, WA",
   languages: ["Python", "JavaScript", "TypeScript", "SQL", "Bash"],
   frameworks: ["React", "Next.js", "Node.js", "Express", "Django", "FastAPI"],

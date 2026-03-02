@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=24&pause=1000&color=F75C7E&center=true&vCenter=true&width=640&lines=Cloud+Developer+%7C+Full+Stack+Engineer;Python+%7C+JavaScript+%7C+TypeScript+%7C+SQL;React+%7C+Next.js+%7C+Express+%7C+Django+%7C+FastAPI;AWS+%7C+GCP+%7C+Docker;I+build+clean%2C+scalable+cloud-native+apps" alt="Typing SVG" />
+  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=24&pause=1000&color=F75C7E&center=true&vCenter=true&width=640&lines=Full+Stack+Engineer+Cloud+Developer+%7C;Python+%7C+JavaScript+%7C+TypeScript+%7C+SQL;React+%7C+Next.js+%7C+Express+%7C+Django+%7C+FastAPI;AWS+%7C+GCP+%7C+Docker;I+build+clean%2C+scalable+cloud-native+apps" alt="Typing SVG" />
 </p>
 
 ---

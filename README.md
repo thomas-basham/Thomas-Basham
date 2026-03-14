@@ -32,7 +32,7 @@ const thomas = {
 | **Category**       | **Tech**                                                                                        |
 | ------------------ | ----------------------------------------------------------------------------------------------- |
 | **Frontend**       | React, Next.js, TailwindCSS, SWR, Redis                                                         |
-| **Backend**        | Node.js, Express || Python, FastAPI/Django                                                   |
+| **Backend**        | Node.js, Express Or Python, FastAPI/Django                                                   |
 | **Cloud & DevOps** | AWS (Lambda, RDS, DynamoDB, API Gateway, IAM, CloudFormation, ECS, EC2), Docker, GitHub Actions |
 
 ---

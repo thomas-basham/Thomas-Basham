@@ -23,61 +23,28 @@
       <div class="hud">
         <header class="top-bar">
           <div class="top-bar__brand">
-            <span class="eyebrow">Fantasy Portfolio</span>
-            <h1>Thomas Basham</h1>
+            <span class="eyebrow" id="brand-eyebrow"></span>
+            <h1 id="brand-title"></h1>
           </div>
 
           <div class="top-bar__status">
-            <span id="zone-name">Arrival Meadow</span>
-            <span id="zone-distance">Follow the lantern path into the realm.</span>
+            <span id="zone-name"></span>
+            <span id="zone-distance"></span>
           </div>
         </header>
 
         <section class="panel panel--intro" id="intro-panel">
-          <span class="eyebrow">Enter the Realm</span>
-          <h2>The portfolio is now a playable world.</h2>
-          <p>
-            Walk a fantasy landscape in first person. Each shrine holds part of
-            the portfolio: projects, current stack, AWS credentials, and contact
-            portals.
-          </p>
+          <span class="eyebrow" id="intro-eyebrow"></span>
+          <h2 id="intro-title"></h2>
+          <p id="intro-body"></p>
 
-          <div class="intro-grid">
-            <div>
-              <h3>Desktop</h3>
-              <p><strong>WASD</strong> move, <strong>mouse</strong> look, <strong>shift</strong> sprint, <strong>E</strong> inspect.</p>
-            </div>
-            <div>
-              <h3>Mobile</h3>
-              <p>Use the on-screen sigils to move and drag the world to look around.</p>
-            </div>
-          </div>
+          <div class="intro-grid" id="intro-grid"></div>
 
-          <div class="panel__actions">
-            <button id="enter-realm" class="action-button action-button--primary" type="button">
-              Enter the Realm
-            </button>
-            <a
-              class="action-button"
-              href="https://github.com/thomas-basham"
-              target="_blank"
-              rel="noreferrer"
-            >
-              GitHub
-            </a>
-            <a
-              class="action-button"
-              href="https://linkedin.com/in/thomas-basham"
-              target="_blank"
-              rel="noreferrer"
-            >
-              LinkedIn
-            </a>
-          </div>
+          <div class="panel__actions" id="intro-actions"></div>
         </section>
 
         <section class="panel panel--inspect hidden" id="inspect-panel" aria-live="polite">
-          <span class="eyebrow" id="inspect-zone">Landmark</span>
+          <span class="eyebrow" id="inspect-zone"></span>
           <h2 id="inspect-title"></h2>
           <p class="panel__kicker" id="inspect-kicker"></p>
           <p id="inspect-body"></p>
@@ -86,14 +53,14 @@
         </section>
 
         <button class="prompt hidden" id="inspect-prompt" type="button">
-          <span class="prompt__eyebrow">Nearby Landmark</span>
-          <span class="prompt__title" id="prompt-title">Inspect</span>
-          <span class="prompt__hint" id="prompt-hint">Press E to inspect</span>
+          <span class="prompt__eyebrow" id="prompt-eyebrow"></span>
+          <span class="prompt__title" id="prompt-title"></span>
+          <span class="prompt__hint" id="prompt-hint"></span>
         </button>
 
         <aside class="legend" id="controls-legend">
-          <span class="eyebrow">Controls</span>
-          <p id="controls-copy">WASD move. Mouse looks. Shift sprints. E inspects.</p>
+          <span class="eyebrow" id="controls-eyebrow"></span>
+          <p id="controls-copy"></p>
         </aside>
 
         <div class="crosshair" id="crosshair" aria-hidden="true"></div>
@@ -118,9 +85,9 @@
 
     <noscript>
       <div class="noscript">
-        JavaScript is required for the 3D portfolio. Visit
-        <a href="https://github.com/thomas-basham">GitHub</a> or
-        <a href="https://linkedin.com/in/thomas-basham">LinkedIn</a>.
+        <span id="noscript-copy"
+          >JavaScript is required for the 3D portfolio.</span
+        >
       </div>
     </noscript>
 

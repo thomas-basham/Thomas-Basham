@@ -1,5 +1,6 @@
 import { THREE } from "./three.js";
 import {
+  applyTextureQuality,
   createGlowMaterial,
   createLabelTexture,
   createMaterialPalette,
@@ -26,31 +27,51 @@ const WORLD_CONFIG = {
 const QUALITY_PROFILES = {
   low: {
     desktopPixelRatio: 1,
-    mobilePixelRatio: 0.9,
+    mobilePixelRatio: 0.8,
     desktopShadows: false,
     fogDensity: 0.0134,
+    shadowMapSize: 0,
+    textureQuality: "low",
+    motionScale: 0.55,
+    pulseScale: 0.55,
+    ambientUpdateInterval: 1 / 24,
+    lanternLights: false,
+    landmarkLightScale: 0.72,
   },
   medium: {
-    desktopPixelRatio: 1.45,
-    mobilePixelRatio: 1.15,
+    desktopPixelRatio: 1.35,
+    mobilePixelRatio: 1,
     desktopShadows: false,
     fogDensity: 0.0125,
+    shadowMapSize: 0,
+    textureQuality: "medium",
+    motionScale: 0.78,
+    pulseScale: 0.82,
+    ambientUpdateInterval: 1 / 30,
+    lanternLights: true,
+    landmarkLightScale: 0.88,
   },
   high: {
-    desktopPixelRatio: 2,
-    mobilePixelRatio: 1.4,
+    desktopPixelRatio: 1.85,
+    mobilePixelRatio: 1.2,
     desktopShadows: true,
     fogDensity: 0.012,
+    shadowMapSize: 1536,
+    textureQuality: "high",
+    motionScale: 1,
+    pulseScale: 1,
+    ambientUpdateInterval: 0,
+    lanternLights: true,
+    landmarkLightScale: 1,
   },
 };
 
 export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent }) {
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: true,
-    powerPreference: "high-performance",
+    antialias: !isTouchDevice,
+    powerPreference: isTouchDevice ? "low-power" : "high-performance",
   });
-  renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -70,6 +91,14 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
   const textureLoader = new THREE.TextureLoader();
   const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
   const materials = createMaterialPalette();
+  const geometryCache = new Map();
+  const staticTextures = [];
+  const nearestExhibitResult = {
+    exhibit: null,
+    distance: Number.POSITIVE_INFINITY,
+    surfaceDistance: Number.POSITIVE_INFINITY,
+  };
+  const instanceTransform = new THREE.Object3D();
   const exhibits = exhibitContent.map((exhibit) => ({
     ...exhibit,
     position: new THREE.Vector3(exhibit.position.x, 0, exhibit.position.z),
@@ -82,15 +111,27 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     obstacleFields: [],
     reducedMotion: false,
     graphicsQuality: isTouchDevice ? "medium" : "high",
+    dynamicTextureBindings: [],
+    ambientTickAccumulator: 0,
+    viewportWidth: 0,
+    viewportHeight: 0,
+    viewportPixelRatio: 0,
   };
   const resolvedPosition = new THREE.Vector3();
   const textures = {
-    headshot: loadTexture(textureLoader, assetPaths.headshot, maxAnisotropy),
-    badgeCloud: loadTexture(textureLoader, assetPaths.badges.cloud, maxAnisotropy),
-    badgeArchitect: loadTexture(
-      textureLoader,
-      assetPaths.badges.architect,
-      maxAnisotropy
+    headshot: trackStaticTexture(
+      loadTexture(textureLoader, assetPaths.headshot, maxAnisotropy, worldState.graphicsQuality)
+    ),
+    badgeCloud: trackStaticTexture(
+      loadTexture(textureLoader, assetPaths.badges.cloud, maxAnisotropy, worldState.graphicsQuality)
+    ),
+    badgeArchitect: trackStaticTexture(
+      loadTexture(
+        textureLoader,
+        assetPaths.badges.architect,
+        maxAnisotropy,
+        worldState.graphicsQuality
+      )
     ),
   };
 
@@ -190,13 +231,32 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     });
 
     worldState.exhibitsBuilt = true;
+    refreshDynamicTextureBindings();
   }
 
   function setSize(width, height) {
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-    renderer.setPixelRatio(getPixelRatioCap(worldState.graphicsQuality));
-    renderer.setSize(width, height);
+    const clampedWidth = Math.max(1, Math.floor(width));
+    const clampedHeight = Math.max(1, Math.floor(height));
+    const pixelRatio = getPixelRatioCap(worldState.graphicsQuality);
+
+    if (camera.aspect !== clampedWidth / clampedHeight) {
+      camera.aspect = clampedWidth / clampedHeight;
+      camera.updateProjectionMatrix();
+    }
+
+    if (
+      worldState.viewportWidth === clampedWidth &&
+      worldState.viewportHeight === clampedHeight &&
+      worldState.viewportPixelRatio === pixelRatio
+    ) {
+      return;
+    }
+
+    worldState.viewportWidth = clampedWidth;
+    worldState.viewportHeight = clampedHeight;
+    worldState.viewportPixelRatio = pixelRatio;
+    renderer.setPixelRatio(pixelRatio);
+    renderer.setSize(clampedWidth, clampedHeight, false);
   }
 
   function applyPresentationSettings(settings) {
@@ -210,21 +270,30 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
 
   function setGraphicsQuality(graphicsQuality) {
     worldState.graphicsQuality = graphicsQuality;
-    const profile = QUALITY_PROFILES[graphicsQuality] ?? QUALITY_PROFILES.medium;
+    const profile = getQualityProfile(graphicsQuality);
     const shadowsEnabled = !isTouchDevice && profile.desktopShadows;
 
-    renderer.setPixelRatio(getPixelRatioCap(graphicsQuality));
-    renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = shadowsEnabled;
     scene.fog.density = profile.fogDensity;
+    applyStaticTextureQuality(profile.textureQuality);
+    updatePointLightQuality(profile);
+    setSize(canvas.clientWidth || window.innerWidth, canvas.clientHeight || window.innerHeight);
 
     if (keyLight) {
       keyLight.castShadow = shadowsEnabled;
+      if (shadowsEnabled) {
+        keyLight.shadow.mapSize.set(profile.shadowMapSize, profile.shadowMapSize);
+        keyLight.shadow.needsUpdate = true;
+      }
+    }
+
+    if (worldState.exhibitsBuilt) {
+      refreshDynamicTextureBindings();
     }
   }
 
   function getPixelRatioCap(graphicsQuality) {
-    const profile = QUALITY_PROFILES[graphicsQuality] ?? QUALITY_PROFILES.medium;
+    const profile = getQualityProfile(graphicsQuality);
     const cap = isTouchDevice ? profile.mobilePixelRatio : profile.desktopPixelRatio;
     return Math.min(window.devicePixelRatio, cap);
   }
@@ -234,10 +303,14 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       return false;
     }
 
-    return !worldState.obstacleFields.some((field) => {
-      const distance = Math.hypot(x - field.x, z - field.z);
-      return distance < field.radius;
-    });
+    for (let index = 0; index < worldState.obstacleFields.length; index += 1) {
+      const field = worldState.obstacleFields[index];
+      if (Math.hypot(x - field.x, z - field.z) < field.radius) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   function resolvePlayerMotion(position, stepX, stepZ, radius) {
@@ -256,7 +329,8 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
         adjusted = true;
       }
 
-      worldState.obstacleFields.forEach((field) => {
+      for (let index = 0; index < worldState.obstacleFields.length; index += 1) {
+        const field = worldState.obstacleFields[index];
         const minDistance = field.radius + radius;
         let dx = resolvedPosition.x - field.x;
         let dz = resolvedPosition.z - field.z;
@@ -274,7 +348,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
           resolvedPosition.z = field.z + dz * pushScale;
           adjusted = true;
         }
-      });
+      }
 
       if (!adjusted) {
         break;
@@ -290,23 +364,49 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
   }
 
   function getNearestExhibit(position) {
-    let best = null;
+    let bestExhibit = null;
+    let bestDistanceSquared = Number.POSITIVE_INFINITY;
 
     for (const exhibit of exhibits) {
-      const distance = position.distanceTo(exhibit.position);
-      if (!best || distance < best.distance) {
-        best = { exhibit, distance };
+      const distanceSquared = position.distanceToSquared(exhibit.position);
+      if (distanceSquared < bestDistanceSquared) {
+        bestDistanceSquared = distanceSquared;
+        bestExhibit = exhibit;
       }
     }
 
-    return best;
+    if (!bestExhibit) {
+      return null;
+    }
+
+    nearestExhibitResult.exhibit = bestExhibit;
+    nearestExhibitResult.distance = Math.sqrt(bestDistanceSquared);
+    nearestExhibitResult.surfaceDistance = Math.max(
+      0,
+      nearestExhibitResult.distance - bestExhibit.colliderRadius
+    );
+    return nearestExhibitResult;
   }
 
   function updateAmbientMotion(elapsed, delta) {
-    const motionScale = worldState.reducedMotion ? 0.28 : 1;
-    const spinScale = worldState.reducedMotion ? 0.35 : 1;
+    const profile = getQualityProfile(worldState.graphicsQuality);
+    let stepDelta = delta;
 
-    worldState.floaters.forEach((entry) => {
+    if (profile.ambientUpdateInterval > 0) {
+      worldState.ambientTickAccumulator += delta;
+      if (worldState.ambientTickAccumulator < profile.ambientUpdateInterval) {
+        return;
+      }
+
+      stepDelta = worldState.ambientTickAccumulator;
+      worldState.ambientTickAccumulator = 0;
+    }
+
+    const motionScale = (worldState.reducedMotion ? 0.28 : 1) * profile.motionScale;
+    const spinScale = (worldState.reducedMotion ? 0.35 : 1) * profile.motionScale;
+
+    for (let index = 0; index < worldState.floaters.length; index += 1) {
+      const entry = worldState.floaters[index];
       if (entry.amplitude !== 0) {
         entry.object.position.y =
           entry.baseY +
@@ -314,15 +414,137 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       }
 
       if (entry.spinY) {
-        entry.object.rotation.y += entry.spinY * delta * spinScale;
+        entry.object.rotation.y += entry.spinY * stepDelta * spinScale;
       }
-    });
+    }
 
-    worldState.pulsingLights.forEach((pulse) => {
+    for (let index = 0; index < worldState.pulsingLights.length; index += 1) {
+      const pulse = worldState.pulsingLights[index];
+      if (!pulse.enabled) {
+        continue;
+      }
+
       pulse.light.intensity =
-        pulse.baseIntensity +
-        Math.sin(elapsed * pulse.speed + pulse.phase) * pulse.amplitude;
-    });
+        (pulse.baseIntensity +
+          Math.sin(elapsed * pulse.speed + pulse.phase) * pulse.amplitude * profile.pulseScale) *
+        pulse.intensityScale;
+    }
+  }
+
+  function getQualityProfile(graphicsQuality) {
+    return QUALITY_PROFILES[graphicsQuality] ?? QUALITY_PROFILES.medium;
+  }
+
+  function trackStaticTexture(texture) {
+    staticTextures.push(texture);
+    return texture;
+  }
+
+  function applyStaticTextureQuality(textureQuality) {
+    for (let index = 0; index < staticTextures.length; index += 1) {
+      applyTextureQuality(staticTextures[index], maxAnisotropy, textureQuality);
+    }
+  }
+
+  function updatePointLightQuality(profile) {
+    for (let index = 0; index < worldState.pulsingLights.length; index += 1) {
+      const pulse = worldState.pulsingLights[index];
+      const isLanternLight = pulse.group === "lantern";
+      pulse.enabled = isLanternLight ? profile.lanternLights : true;
+      pulse.intensityScale = isLanternLight ? 1 : profile.landmarkLightScale;
+      pulse.light.visible = pulse.enabled;
+    }
+  }
+
+  function registerDynamicTextureBinding(material, buildTexture) {
+    const binding = {
+      material,
+      buildTexture,
+      texture: null,
+    };
+    worldState.dynamicTextureBindings.push(binding);
+    return binding;
+  }
+
+  function refreshDynamicTextureBindings() {
+    for (let index = 0; index < worldState.dynamicTextureBindings.length; index += 1) {
+      const binding = worldState.dynamicTextureBindings[index];
+      const nextTexture = binding.buildTexture(getQualityProfile(worldState.graphicsQuality));
+      if (binding.texture === nextTexture) {
+        continue;
+      }
+
+      binding.texture = nextTexture;
+      binding.material.map = nextTexture;
+      binding.material.needsUpdate = true;
+    }
+  }
+
+  function getGeometry(key, create) {
+    if (!geometryCache.has(key)) {
+      geometryCache.set(key, create());
+    }
+
+    return geometryCache.get(key);
+  }
+
+  function addInstancedMesh(geometry, material, transforms, options = {}) {
+    if (!transforms.length) {
+      return null;
+    }
+
+    // Static scenery batches reuse a single draw path per mesh type.
+    const mesh = new THREE.InstancedMesh(geometry, material, transforms.length);
+    mesh.castShadow = Boolean(options.castShadow);
+    mesh.receiveShadow = Boolean(options.receiveShadow);
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+
+    for (let index = 0; index < transforms.length; index += 1) {
+      const transform = transforms[index];
+      instanceTransform.position.set(
+        transform.position[0],
+        transform.position[1],
+        transform.position[2]
+      );
+      instanceTransform.rotation.set(
+        transform.rotation?.[0] ?? 0,
+        transform.rotation?.[1] ?? 0,
+        transform.rotation?.[2] ?? 0
+      );
+      instanceTransform.scale.set(
+        transform.scale?.[0] ?? 1,
+        transform.scale?.[1] ?? 1,
+        transform.scale?.[2] ?? 1
+      );
+      instanceTransform.updateMatrix();
+      mesh.setMatrixAt(index, instanceTransform.matrix);
+    }
+
+    mesh.instanceMatrix.needsUpdate = true;
+    scene.add(mesh);
+    return mesh;
+  }
+
+  function bindDynamicTexture(material, buildTexture) {
+    // Canvas-backed exhibit art swaps quality tiers without rebuilding the scene graph.
+    const binding = registerDynamicTextureBinding(material, (profile) =>
+      buildTexture({
+        maxAnisotropy,
+        quality: profile.textureQuality,
+      })
+    );
+    binding.texture = binding.buildTexture(getQualityProfile(worldState.graphicsQuality));
+    material.map = binding.texture;
+    material.needsUpdate = true;
+    return material;
+  }
+
+  function createDynamicBasicMaterial(options, buildTexture) {
+    return bindDynamicTexture(new THREE.MeshBasicMaterial(options), buildTexture);
+  }
+
+  function createDynamicSpriteMaterial(options, buildTexture) {
+    return bindDynamicTexture(new THREE.SpriteMaterial(options), buildTexture);
   }
 
   // Static environment builders
@@ -373,14 +595,15 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
   }
 
   function createLighting() {
+    const profile = getQualityProfile(worldState.graphicsQuality);
     const hemi = new THREE.HemisphereLight(0xc3dbe1, 0x1c2b2c, 1.45);
     scene.add(hemi);
 
     keyLight = new THREE.DirectionalLight(0xffd9aa, 1.9);
     keyLight.position.set(28, 40, 12);
-    if (!isTouchDevice) {
+    if (!isTouchDevice && profile.desktopShadows) {
       keyLight.castShadow = true;
-      keyLight.shadow.mapSize.set(2048, 2048);
+      keyLight.shadow.mapSize.set(profile.shadowMapSize, profile.shadowMapSize);
       keyLight.shadow.camera.near = 1;
       keyLight.shadow.camera.far = 120;
       keyLight.shadow.camera.left = -50;
@@ -453,18 +676,21 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       [7, -11, 2.2],
       [13, -11, 2.2],
     ];
+    const transforms = stonePositions.map(([x, z, radius], index) => ({
+      position: [x, terrainHeight(x, z) + 0.14, z],
+      rotation: [0, ((index * 47) % 180) * (Math.PI / 180), 0],
+      scale: [radius, 0.32, radius],
+    }));
 
-    stonePositions.forEach(([x, z, radius]) => {
-      const disk = new THREE.Mesh(
-        new THREE.CylinderGeometry(radius, radius * 1.14, 0.32, 8),
-        materials.slate
-      );
-      disk.position.set(x, terrainHeight(x, z) + 0.14, z);
-      disk.rotation.y = Math.random() * Math.PI;
-      disk.castShadow = !isTouchDevice;
-      disk.receiveShadow = true;
-      scene.add(disk);
-    });
+    addInstancedMesh(
+      getGeometry("stone-path-disk", () => new THREE.CylinderGeometry(1, 1.14, 1, 8)),
+      materials.slate,
+      transforms,
+      {
+        castShadow: !isTouchDevice,
+        receiveShadow: true,
+      }
+    );
   }
 
   function createLanternPath() {
@@ -479,36 +705,42 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       [4.4, -17],
     ];
 
-    lanterns.forEach(([x, z]) => {
+    const poleGeometry = getGeometry(
+      "lantern-pole",
+      () => new THREE.CylinderGeometry(0.12, 0.16, 2.9, 8)
+    );
+    const lanternGeometry = getGeometry(
+      "lantern-orb",
+      () => new THREE.OctahedronGeometry(0.28, 0)
+    );
+
+    lanterns.forEach(([x, z], index) => {
       const group = new THREE.Group();
       group.position.set(x, terrainHeight(x, z), z);
 
-      const pole = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.12, 0.16, 2.9, 8),
-        materials.bark
-      );
+      const pole = new THREE.Mesh(poleGeometry, materials.bark);
       pole.position.y = 1.4;
       pole.castShadow = !isTouchDevice;
       group.add(pole);
 
-      const lantern = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.28, 0),
-        createGlowMaterial(0xf6c16c, 1.6)
-      );
+      const lantern = new THREE.Mesh(lanternGeometry, createGlowMaterial(0xf6c16c, 1.6));
       lantern.position.y = 2.85;
       group.add(lantern);
 
       const light = new THREE.PointLight(0xf5b15e, 1.1, 10, 2);
       light.position.y = 2.85;
       group.add(light);
-      addPulse(light, 1.1, 0.28, 2.2, Math.random() * Math.PI * 2);
+      addPulse(light, 1.1, 0.28, 2.2, index * 0.9, "lantern");
 
       scene.add(group);
-      addFloater(lantern, 0.08, 2.1, Math.random() * Math.PI * 2, 0.55);
+      addFloater(lantern, 0.08, 2.1, index * 0.75, 0.55);
     });
   }
 
   function createForestRing() {
+    const trunkTransforms = [];
+    const canopyTransforms = [];
+
     for (let index = 0; index < 34; index += 1) {
       const angle = (index / 34) * Math.PI * 2;
       const radius = 42 + Math.sin(index * 2.7) * 6 + (index % 3) * 3;
@@ -520,8 +752,41 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       }
 
       const scale = 0.85 + (index % 5) * 0.18;
-      createTree(x, z, scale);
+      const y = terrainHeight(x, z);
+      trunkTransforms.push({
+        position: [x, y + 1.45 * scale, z],
+        scale: [scale, scale, scale],
+      });
+
+      for (let layer = 0; layer < 3; layer += 1) {
+        canopyTransforms.push({
+          position: [x, y + (2.45 + layer * 0.92) * scale, z],
+          scale: [
+            scale * ((1.45 - layer * 0.22) / 1.45),
+            scale,
+            scale * ((1.45 - layer * 0.22) / 1.45),
+          ],
+        });
+      }
     }
+
+    addInstancedMesh(
+      getGeometry("forest-trunk", () => new THREE.CylinderGeometry(0.32, 0.54, 2.8, 8)),
+      materials.bark,
+      trunkTransforms,
+      {
+        castShadow: !isTouchDevice,
+      }
+    );
+
+    addInstancedMesh(
+      getGeometry("forest-canopy", () => new THREE.ConeGeometry(1.45, 2.1, 9)),
+      materials.foliage,
+      canopyTransforms,
+      {
+        castShadow: !isTouchDevice,
+      }
+    );
   }
 
   function createFloatingIslands() {
@@ -531,39 +796,46 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       [11, 17, 26, 3.8],
     ];
 
-    islands.forEach(([x, y, z, scale]) => {
+    const topGeometry = getGeometry(
+      "floating-island-top",
+      () => new THREE.SphereGeometry(1, 18, 18)
+    );
+    const spikeGeometry = getGeometry(
+      "floating-island-spike",
+      () => new THREE.ConeGeometry(1, 1, 7)
+    );
+    const grassGeometry = getGeometry(
+      "floating-island-grass",
+      () => new THREE.CylinderGeometry(1, 1.07, 1, 10)
+    );
+    const grassMaterial = new THREE.MeshStandardMaterial({
+      color: 0x6d966f,
+      roughness: 1,
+      metalness: 0,
+    });
+
+    islands.forEach(([x, y, z, scale], index) => {
       const group = new THREE.Group();
       group.position.set(x, y, z);
 
-      const top = new THREE.Mesh(
-        new THREE.SphereGeometry(scale, 18, 18),
-        materials.stoneDark
-      );
-      top.scale.set(1.1, 0.42, 1);
+      const top = new THREE.Mesh(topGeometry, materials.stoneDark);
+      top.scale.set(scale * 1.1, scale * 0.42, scale);
       top.castShadow = !isTouchDevice;
       group.add(top);
 
-      const spike = new THREE.Mesh(
-        new THREE.ConeGeometry(scale * 0.62, scale * 2.2, 7),
-        materials.stone
-      );
+      const spike = new THREE.Mesh(spikeGeometry, materials.stone);
       spike.position.y = -scale * 1.15;
+      spike.scale.set(scale * 0.62, scale * 2.2, scale * 0.62);
       spike.castShadow = !isTouchDevice;
       group.add(spike);
 
-      const grass = new THREE.Mesh(
-        new THREE.CylinderGeometry(scale * 0.9, scale * 0.96, 0.2, 10),
-        new THREE.MeshStandardMaterial({
-          color: 0x6d966f,
-          roughness: 1,
-          metalness: 0,
-        })
-      );
+      const grass = new THREE.Mesh(grassGeometry, grassMaterial);
       grass.position.y = scale * 0.15;
+      grass.scale.set(scale * 0.9, 0.2, scale * 0.9);
       group.add(grass);
 
       scene.add(group);
-      addFloater(group, 0.55, 0.5 + scale * 0.08, Math.random() * Math.PI * 2, 0.07);
+      addFloater(group, 0.55, 0.5 + scale * 0.08, index * 1.4, 0.07);
     });
   }
 
@@ -573,45 +845,48 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       [56, -55, 24],
       [0, -67, 28],
     ];
+    const shaftTransforms = [];
+    const roofTransforms = [];
 
-    towers.forEach(([x, z, height]) => {
-      const tower = new THREE.Group();
-      tower.position.set(x, terrainHeight(x, z), z);
+    for (let index = 0; index < towers.length; index += 1) {
+      const [x, z, height] = towers[index];
+      const y = terrainHeight(x, z);
+      shaftTransforms.push({
+        position: [x, y + height / 2, z],
+        scale: [1, height, 1],
+      });
+      roofTransforms.push({
+        position: [x, y + height + 1.2, z],
+      });
+    }
 
-      const shaft = new THREE.Mesh(
-        new THREE.CylinderGeometry(2.8, 3.6, height, 7),
-        materials.stoneDark
-      );
-      shaft.position.y = height / 2;
-      tower.add(shaft);
-
-      const roof = new THREE.Mesh(
-        new THREE.ConeGeometry(4.6, 6.2, 7),
-        materials.bark
-      );
-      roof.position.y = height + 1.2;
-      tower.add(roof);
-
-      scene.add(tower);
-    });
+    addInstancedMesh(
+      getGeometry("distant-tower-shaft", () => new THREE.CylinderGeometry(2.8, 3.6, 1, 7)),
+      materials.stoneDark,
+      shaftTransforms
+    );
+    addInstancedMesh(
+      getGeometry("distant-tower-roof", () => new THREE.ConeGeometry(4.6, 6.2, 7)),
+      materials.bark,
+      roofTransforms
+    );
   }
 
   function createStarField() {
-    const points = [];
+    const points = new Float32Array(650 * 3);
 
     for (let index = 0; index < 650; index += 1) {
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(THREE.MathUtils.randFloatSpread(2));
       const radius = THREE.MathUtils.randFloat(92, 132);
-      points.push(
-        radius * Math.sin(phi) * Math.cos(theta),
-        radius * Math.cos(phi) + 20,
-        radius * Math.sin(phi) * Math.sin(theta)
-      );
+      const pointOffset = index * 3;
+      points[pointOffset] = radius * Math.sin(phi) * Math.cos(theta);
+      points[pointOffset + 1] = radius * Math.cos(phi) + 20;
+      points[pointOffset + 2] = radius * Math.sin(phi) * Math.sin(theta);
     }
 
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.Float32BufferAttribute(points, 3));
+    geometry.setAttribute("position", new THREE.BufferAttribute(points, 3));
 
     const stars = new THREE.Points(
       geometry,
@@ -632,16 +907,13 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     const group = createPlatform(exhibit.position, 4.1, 1.25);
     addLabelSprite(group, exhibit.zone, exhibit.title, exhibit.accent, 6.3);
 
-    const frame = new THREE.Mesh(
-      new THREE.BoxGeometry(3.4, 4.4, 0.24),
-      materials.brass
-    );
+    const frame = new THREE.Mesh(getGeometry("portrait-frame", () => new THREE.BoxGeometry(3.4, 4.4, 0.24)), materials.brass);
     frame.position.set(0, 4.2, 0);
     frame.castShadow = !isTouchDevice;
     group.add(frame);
 
     const portrait = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.78, 3.72),
+      getGeometry("portrait-plane", () => new THREE.PlaneGeometry(2.78, 3.72)),
       new THREE.MeshBasicMaterial({
         map: textures.headshot,
         side: THREE.DoubleSide,
@@ -651,7 +923,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     group.add(portrait);
 
     const arch = new THREE.Mesh(
-      new THREE.TorusGeometry(2.75, 0.09, 16, 64),
+      getGeometry("portrait-arch", () => new THREE.TorusGeometry(2.75, 0.09, 16, 64)),
       createGlowMaterial(exhibit.accent, 1.2)
     );
     arch.position.set(0, 4.2, -0.16);
@@ -662,7 +934,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       [2.45, 0, 0],
     ].forEach(([x, y, z]) => {
       const column = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.35, 0.5, 4.6, 10),
+        getGeometry("portrait-column", () => new THREE.CylinderGeometry(0.35, 0.5, 4.6, 10)),
         materials.stone
       );
       column.position.set(x, 2.5 + y, z);
@@ -683,14 +955,14 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     group.add(card);
 
     const orb = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(0.44, 0),
+      getGeometry("project-orb", () => new THREE.IcosahedronGeometry(0.44, 0)),
       createGlowMaterial(exhibit.accent, 1.4)
     );
     orb.position.set(0, 5.1, 0);
     group.add(orb);
 
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(2.2, 0.08, 12, 64),
+      getGeometry("project-ring", () => new THREE.TorusGeometry(2.2, 0.08, 12, 64)),
       createGlowMaterial(exhibit.accent, 1.05)
     );
     ring.position.set(0, 3.5, 0);
@@ -708,7 +980,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     addLabelSprite(group, exhibit.zone, exhibit.title, exhibit.accent, 6.1);
 
     const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.42, 0.7, 3.6, 10),
+      getGeometry("grove-trunk", () => new THREE.CylinderGeometry(0.42, 0.7, 3.6, 10)),
       materials.bark
     );
     trunk.position.set(0, 2.3, -0.4);
@@ -716,7 +988,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     group.add(trunk);
 
     const canopy = new THREE.Mesh(
-      new THREE.SphereGeometry(1.9, 18, 18),
+      getGeometry("grove-canopy", () => new THREE.SphereGeometry(1.9, 18, 18)),
       materials.foliage
     );
     canopy.position.set(0, 4.35, -0.55);
@@ -725,7 +997,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     group.add(canopy);
 
     const crystal = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.85, 0),
+      getGeometry("grove-crystal", () => new THREE.OctahedronGeometry(0.85, 0)),
       createGlowMaterial(exhibit.accent, 1.55)
     );
     crystal.position.set(0, 3.2, 0.9);
@@ -756,7 +1028,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     addLabelSprite(group, exhibit.zone, exhibit.title, exhibit.accent, 6.2);
 
     const arch = new THREE.Mesh(
-      new THREE.TorusGeometry(2.5, 0.1, 18, 72),
+      getGeometry("sanctum-arch", () => new THREE.TorusGeometry(2.5, 0.1, 18, 72)),
       createGlowMaterial(exhibit.accent, 1.3)
     );
     arch.position.set(0, 4.15, -0.2);
@@ -766,7 +1038,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     group.add(createBadgePedestal(textures.badgeArchitect, 1.75, 3.2));
 
     const halo = new THREE.Mesh(
-      new THREE.TorusGeometry(1.15, 0.08, 12, 48),
+      getGeometry("sanctum-halo", () => new THREE.TorusGeometry(1.15, 0.08, 12, 48)),
       createGlowMaterial("#dfeff3", 1.1)
     );
     halo.position.set(0, 5.25, 0.3);
@@ -782,7 +1054,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     addLabelSprite(group, exhibit.zone, exhibit.title, exhibit.accent, 6.5);
 
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(2.6, 0.16, 20, 90),
+      getGeometry("portal-ring", () => new THREE.TorusGeometry(2.6, 0.16, 20, 90)),
       createGlowMaterial(exhibit.accent, 1.65)
     );
     ring.position.set(0, 4.1, 0);
@@ -790,14 +1062,13 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     addFloater(ring, 0.14, 1.6, 0.4, 0.4);
 
     const portal = new THREE.Mesh(
-      new THREE.CircleGeometry(2.15, 48),
-      new THREE.MeshBasicMaterial({
-        map: createPortalTexture(exhibit.accent, maxAnisotropy),
+      getGeometry("portal-plane", () => new THREE.CircleGeometry(2.15, 48)),
+      createDynamicBasicMaterial({
         transparent: true,
         opacity: 0.88,
         blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
-      })
+      }, (textureOptions) => createPortalTexture(exhibit.accent, textureOptions))
     );
     portal.position.set(0, 4.1, -0.04);
     group.add(portal);
@@ -862,7 +1133,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     group.add(pedestal);
 
     const badge = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.9, 1.9),
+      getGeometry("badge-plane", () => new THREE.PlaneGeometry(1.9, 1.9)),
       new THREE.MeshBasicMaterial({
         map: texture,
         transparent: true,
@@ -878,18 +1149,17 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
   function createProjectCard(exhibit) {
     const panel = new THREE.Group();
     const slab = new THREE.Mesh(
-      new THREE.BoxGeometry(3.1, 4.2, 0.22),
+      getGeometry("project-slab", () => new THREE.BoxGeometry(3.1, 4.2, 0.22)),
       materials.glass
     );
     panel.add(slab);
 
     const face = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.82, 3.88),
-      new THREE.MeshBasicMaterial({
-        map: createProjectTexture(exhibit, maxAnisotropy),
+      getGeometry("project-face", () => new THREE.PlaneGeometry(2.82, 3.88)),
+      createDynamicBasicMaterial({
         transparent: true,
         side: THREE.DoubleSide,
-      })
+      }, (textureOptions) => createProjectTexture(exhibit, textureOptions))
     );
     face.position.z = 0.13;
     panel.add(face);
@@ -913,7 +1183,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       group.add(pillar);
 
       const cap = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(0.18, 0),
+        getGeometry("pillar-cap", () => new THREE.IcosahedronGeometry(0.18, 0)),
         createGlowMaterial(accent, 1.1)
       );
       cap.position.set(x, height + 1.15, z);
@@ -924,11 +1194,10 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
 
   function addLabelSprite(group, eyebrow, title, accent, y) {
     const sprite = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: createLabelTexture(eyebrow, title, accent, maxAnisotropy),
+      createDynamicSpriteMaterial({
         transparent: true,
         depthWrite: false,
-      })
+      }, (textureOptions) => createLabelTexture(eyebrow, title, accent, textureOptions))
     );
     sprite.position.set(0, y, 0);
     sprite.scale.set(6.4, 2.4, 1);
@@ -938,13 +1207,12 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
 
   function createSmallSigil(text, accent) {
     return new THREE.Mesh(
-      new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({
-        map: createSigilTexture(text, accent, maxAnisotropy),
+      getGeometry("small-sigil-plane", () => new THREE.PlaneGeometry(1, 1)),
+      createDynamicBasicMaterial({
         transparent: true,
         depthWrite: false,
         side: THREE.DoubleSide,
-      })
+      }, (textureOptions) => createSigilTexture(text, accent, textureOptions))
     );
   }
 
@@ -952,32 +1220,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     const light = new THREE.PointLight(color, intensity, distance, 2);
     light.position.set(0, y, 0);
     group.add(light);
-    addPulse(light, intensity, intensity * 0.22, 1.5, Math.random() * Math.PI * 2);
-  }
-
-  function createTree(x, z, scale) {
-    const group = new THREE.Group();
-    group.position.set(x, terrainHeight(x, z), z);
-
-    const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.32 * scale, 0.54 * scale, 2.8 * scale, 8),
-      materials.bark
-    );
-    trunk.position.y = 1.45 * scale;
-    trunk.castShadow = !isTouchDevice;
-    group.add(trunk);
-
-    [0, 1, 2].forEach((layer) => {
-      const canopy = new THREE.Mesh(
-        new THREE.ConeGeometry((1.45 - layer * 0.22) * scale, 2.1 * scale, 9),
-        materials.foliage
-      );
-      canopy.position.y = (2.45 + layer * 0.92) * scale;
-      canopy.castShadow = !isTouchDevice;
-      group.add(canopy);
-    });
-
-    scene.add(group);
+    addPulse(light, intensity, intensity * 0.22, 1.5, worldState.pulsingLights.length * 0.8, "landmark");
   }
 
   function addFloater(object, amplitude, speed, phase, spinY) {
@@ -991,14 +1234,21 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     });
   }
 
-  function addPulse(light, baseIntensity, amplitude, speed, phase) {
-    worldState.pulsingLights.push({
+  function addPulse(light, baseIntensity, amplitude, speed, phase, group = "ambient") {
+    const profile = getQualityProfile(worldState.graphicsQuality);
+    const isLanternLight = group === "lantern";
+    const pulse = {
       light,
       baseIntensity,
       amplitude,
       speed,
       phase,
-    });
+      group,
+      enabled: isLanternLight ? profile.lanternLights : true,
+      intensityScale: isLanternLight ? 1 : profile.landmarkLightScale,
+    };
+    pulse.light.visible = pulse.enabled;
+    worldState.pulsingLights.push(pulse);
   }
 
   // Terrain math

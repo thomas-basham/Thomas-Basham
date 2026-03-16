@@ -1,4 +1,5 @@
 const SETTINGS_STORAGE_KEY = "thomas-basham-portfolio-settings";
+const GRAPHICS_QUALITY_LEVELS = ["low", "medium", "high"];
 
 const SENSITIVITY_PROFILES = {
   low: {
@@ -25,7 +26,7 @@ export function getDefaultExperienceSettings(isTouchDevice, prefersReducedMotion
   return {
     reducedMotion: prefersReducedMotion,
     sensitivity: "normal",
-    graphicsQuality: isTouchDevice ? "medium" : "high",
+    graphicsQuality: getAdaptiveGraphicsQuality(isTouchDevice),
   };
 }
 
@@ -48,7 +49,7 @@ export function loadExperienceSettings(isTouchDevice, prefersReducedMotion) {
         parsed.sensitivity in SENSITIVITY_PROFILES
           ? parsed.sensitivity
           : defaults.sensitivity,
-      graphicsQuality: ["low", "medium", "high"].includes(parsed.graphicsQuality)
+      graphicsQuality: GRAPHICS_QUALITY_LEVELS.includes(parsed.graphicsQuality)
         ? parsed.graphicsQuality
         : defaults.graphicsQuality,
     };
@@ -67,4 +68,32 @@ export function saveExperienceSettings(settings) {
 
 export function getSensitivityProfile(level) {
   return SENSITIVITY_PROFILES[level] ?? SENSITIVITY_PROFILES.normal;
+}
+
+export function getAdaptiveGraphicsQuality(isTouchDevice) {
+  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  const deviceMemory = Number.isFinite(navigator.deviceMemory) ? navigator.deviceMemory : null;
+  const hardwareConcurrency = Number.isFinite(navigator.hardwareConcurrency)
+    ? navigator.hardwareConcurrency
+    : null;
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  const mobileLikeDevice = isTouchDevice || coarsePointer;
+  const constrainedDevice =
+    (deviceMemory !== null && deviceMemory <= 4) ||
+    (hardwareConcurrency !== null && hardwareConcurrency <= 4);
+  const highHeadroom =
+    !mobileLikeDevice &&
+    (deviceMemory === null || deviceMemory >= 8) &&
+    (hardwareConcurrency === null || hardwareConcurrency >= 8) &&
+    devicePixelRatio <= 2.5;
+
+  if (mobileLikeDevice) {
+    return constrainedDevice || devicePixelRatio >= 2.5 ? "low" : "medium";
+  }
+
+  if (constrainedDevice) {
+    return "medium";
+  }
+
+  return highHeadroom ? "high" : "medium";
 }

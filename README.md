@@ -75,12 +75,14 @@ const thomas = {
 - `main.js` is the entrypoint. It wires DOM state, input, movement, and the render loop.
 - `app/content.js` is the single source of truth for portfolio copy, links, asset paths, and exhibit metadata.
 - `app/dom.js` renders intro/inspect UI content and keeps DOM updates separate from scene logic.
+- `app/settings.js` manages persisted experience settings such as reduced motion, sensitivity, and graphics quality.
 - `app/world.js` builds the Three.js renderer, environment, terrain, and exhibit meshes.
 - `app/render-utils.js` contains reusable texture/material helpers for labels, project cards, sigils, and portal effects.
 
 #### Editing Content
 
 - Update links, labels, contact info, intro copy, and exhibit descriptions in `app/content.js`.
+- Update settings copy and utility labels in `app/content.js`; runtime defaults and persistence live in `app/settings.js`.
 - Add or move a portfolio landmark by editing an exhibit entry in `app/content.js`, especially `type`, `position`, `accent`, and `actions`.
 - Leave `app/world.js` alone unless you want to change scene composition or gameplay behavior.
 

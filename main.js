@@ -229,6 +229,7 @@ function openFallbackMode(options = {}) {
   }
   syncAppShell();
   flagInteractionRefresh();
+  refs.fallbackPanel.scrollTop = 0;
 
   const focusTarget = isWorldAvailable() ? refs.fallbackClose : refs.fallbackHeroTitle;
   focusTarget?.focus({ preventScroll: true });
@@ -914,17 +915,17 @@ function handleDocumentKeyDown(event) {
     return;
   }
 
-  if (event.code === "Backquote") {
-    event.preventDefault();
-    toggleDebugPanel();
-    return;
-  }
-
   if (appState.fallbackOpen) {
     if (event.code === "Escape" && worldAvailable) {
       event.preventDefault();
       closeFallbackMode();
     }
+    return;
+  }
+
+  if (event.code === "Backquote") {
+    event.preventDefault();
+    toggleDebugPanel();
     return;
   }
 

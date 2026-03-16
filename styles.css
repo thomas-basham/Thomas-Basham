@@ -771,6 +771,7 @@ body.is-webgl-unavailable #world {
 body.is-fallback-open .panel--inspect,
 body.is-fallback-open .prompt,
 body.is-fallback-open .legend,
+body.is-fallback-open .debug-panel,
 body.is-fallback-open .crosshair,
 body.is-fallback-open .mobile-controls,
 body.is-fallback-open .quick-cta {

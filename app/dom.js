@@ -107,6 +107,12 @@ export function getDomRefs() {
     controlsEyebrow: document.getElementById("controls-eyebrow"),
     controlsCopy: document.getElementById("controls-copy"),
     crosshair: document.getElementById("crosshair"),
+    debugPanel: document.getElementById("debug-panel"),
+    debugTitle: document.getElementById("debug-title"),
+    debugFps: document.getElementById("debug-fps"),
+    debugQuality: document.getElementById("debug-quality"),
+    debugDraws: document.getElementById("debug-draws"),
+    debugTriangles: document.getElementById("debug-triangles"),
     noScriptCopy: document.getElementById("noscript-copy"),
     mobileInspect: document.getElementById("mobile-inspect"),
     mobileSprintLabel: document.getElementById("mobile-sprint-label"),
@@ -146,6 +152,11 @@ export function hydrateStaticContent(refs, content, isTouchDevice, actionHandler
   refs.controlsCopy.textContent = isTouchDevice
     ? content.controls.mobile
     : content.controls.desktop;
+  refs.debugTitle.textContent = content.debug.title;
+  refs.debugFps.setAttribute("data-label", content.debug.fpsLabel);
+  refs.debugQuality.setAttribute("data-label", content.debug.qualityLabel);
+  refs.debugDraws.setAttribute("data-label", content.debug.drawsLabel);
+  refs.debugTriangles.setAttribute("data-label", content.debug.trianglesLabel);
   refs.crosshair.classList.toggle("hidden", isTouchDevice);
   refs.pointerToggle.classList.toggle("hidden", isTouchDevice);
   refs.mobileInspect.disabled = true;
@@ -248,4 +259,20 @@ export function updateSettingsControls(refs, content, settings) {
 
   updateChoiceGroup(refs.sensitivityOptions, settings.sensitivity);
   updateChoiceGroup(refs.graphicsOptions, settings.graphicsQuality);
+}
+
+export function updateDebugMetrics(refs, options) {
+  const { visible, fps, graphicsQuality, drawCalls, triangles } = options;
+  refs.debugPanel.classList.toggle("hidden", !visible);
+  if (!visible) {
+    return;
+  }
+
+  refs.debugFps.textContent = String(fps);
+  refs.debugQuality.textContent =
+    typeof graphicsQuality === "string"
+      ? `${graphicsQuality.charAt(0).toUpperCase()}${graphicsQuality.slice(1)}`
+      : "";
+  refs.debugDraws.textContent = String(drawCalls);
+  refs.debugTriangles.textContent = Number(triangles).toLocaleString();
 }

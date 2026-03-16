@@ -12,7 +12,7 @@ export const portfolioContent = {
   controls: {
     eyebrow: "Controls",
     desktop:
-      "WASD moves. Mouse looks. Shift sprints. E inspects nearby landmarks. Esc releases the cursor.",
+      "WASD moves. Mouse looks. Shift sprints. E inspects nearby landmarks. Esc releases the cursor. Press ` to toggle metrics.",
     mobile:
       "Use the movement sigils, drag to look, tap Run to sprint, and tap Inspect near a landmark.",
   },
@@ -97,6 +97,13 @@ export const portfolioContent = {
   mobileActions: {
     sprint: "Run",
     inspect: "Inspect",
+  },
+  debug: {
+    title: "Runtime Metrics",
+    fpsLabel: "FPS",
+    qualityLabel: "Quality",
+    drawsLabel: "Draws",
+    trianglesLabel: "Triangles",
   },
   noScript:
     "JavaScript is required for the 3D portfolio. Please enable it to explore the scene.",

@@ -5,6 +5,7 @@ import {
   hydrateStaticContent,
   renderInspectPanel,
   setPromptState,
+  updateDebugMetrics,
   updateSettingsControls,
   updateUtilityState,
   updateZoneStatus,
@@ -40,6 +41,7 @@ const controls = {
   lookUp: false,
   lookDown: false,
 };
+const controlKeys = Object.keys(controls);
 
 const appState = {
   activeExhibit: null,
@@ -57,7 +59,15 @@ const appState = {
   lastTouchY: 0,
   initialized: false,
   listenersBound: false,
+  interactionRefreshTimer: 0,
+  interactionDirty: true,
+  debugOpen: false,
+  debugSampleTime: 0,
+  debugFrameCount: 0,
+  pendingResizeFrame: 0,
 };
+const INTERACTION_REFRESH_INTERVAL = isTouchDevice ? 0.12 : 0.08;
+const DEBUG_SAMPLE_INTERVAL = 0.25;
 
 const moveVelocity = new THREE.Vector3();
 const worldUp = new THREE.Vector3(0, 1, 0);
@@ -67,6 +77,8 @@ const toExhibit = new THREE.Vector3();
 const movementDirection = new THREE.Vector3();
 const forwardDirection = new THREE.Vector3();
 const rightDirection = new THREE.Vector3();
+const bestInteractTarget = createInteractMetrics();
+const currentInteractTarget = createInteractMetrics();
 
 let sensitivityProfile = getSensitivityProfile(experienceSettings.sensitivity);
 
@@ -92,9 +104,16 @@ function initialize() {
     isTouchDevice,
     isIntroOpen: appState.introOpen,
   });
+  updateDebugMetrics(refs, {
+    visible: false,
+    fps: 0,
+    graphicsQuality: experienceSettings.graphicsQuality,
+    drawCalls: 0,
+    triangles: 0,
+  });
 
-  world.buildStaticScene();
   applyExperienceSettings();
+  world.buildStaticScene();
   bindEventListeners();
 
   const fontsReady = document.fonts ? document.fonts.ready : Promise.resolve();
@@ -125,6 +144,7 @@ function bindEventListeners() {
   document.addEventListener("keyup", handleDocumentKeyUp);
   window.addEventListener("blur", clearMovement);
   window.addEventListener("resize", onResize);
+  window.visualViewport?.addEventListener("resize", onResize);
 
   refs.controlButtons.forEach((button) => {
     button.addEventListener("pointerdown", handleControlPointerDown);
@@ -139,9 +159,19 @@ function animate() {
   const elapsed = world.clock.elapsedTime;
 
   updatePlayer(delta);
-  updateInteractionUI();
+  appState.interactionRefreshTimer += delta;
+  if (
+    appState.interactionDirty ||
+    appState.interactionRefreshTimer >= INTERACTION_REFRESH_INTERVAL
+  ) {
+    // UI state is less latency-sensitive than movement, so refresh it on a light cadence.
+    appState.interactionDirty = false;
+    appState.interactionRefreshTimer = 0;
+    updateInteractionUI();
+  }
   world.updateAmbientMotion(elapsed, delta);
   world.renderer.render(world.scene, world.camera);
+  updateDebugPanel(delta);
 }
 
 function updatePlayer(delta) {
@@ -290,7 +320,7 @@ function getStableInteractTarget() {
   // Keep the current target unless a new candidate is meaningfully better.
   const bestCandidate = findBestInteractCandidate();
   const currentCandidate = appState.nearbyExhibit
-    ? getInteractMetrics(appState.nearbyExhibit)
+    ? evaluateInteractMetrics(appState.nearbyExhibit, currentInteractTarget)
     : null;
 
   if (currentCandidate?.isInRange) {
@@ -304,23 +334,24 @@ function getStableInteractTarget() {
 }
 
 function findBestInteractCandidate() {
-  let best = null;
+  let hasBestCandidate = false;
 
-  world.exhibits.forEach((exhibit) => {
-    const metrics = getInteractMetrics(exhibit);
+  for (const exhibit of world.exhibits) {
+    const metrics = evaluateInteractMetrics(exhibit, currentInteractTarget);
     if (!metrics.isInRange) {
-      return;
+      continue;
     }
 
-    if (!best || metrics.score < best.score) {
-      best = metrics;
+    if (!hasBestCandidate || metrics.score < bestInteractTarget.score) {
+      copyInteractMetrics(metrics, bestInteractTarget);
+      hasBestCandidate = true;
     }
-  });
+  }
 
-  return best;
+  return hasBestCandidate ? bestInteractTarget : null;
 }
 
-function getInteractMetrics(exhibit) {
+function evaluateInteractMetrics(exhibit, output) {
   toExhibit.copy(exhibit.position).sub(eyePosition);
 
   const centerDistance = toExhibit.length();
@@ -330,25 +361,23 @@ function getInteractMetrics(exhibit) {
     (appState.nearbyExhibit?.id === exhibit.id ? 1.15 : 0.45);
 
   if (surfaceDistance > maxSurfaceDistance) {
-    return {
-      exhibit,
-      isInRange: false,
-      distance: centerDistance,
-      surfaceDistance,
-      score: Number.POSITIVE_INFINITY,
-    };
+    output.exhibit = exhibit;
+    output.isInRange = false;
+    output.distance = centerDistance;
+    output.surfaceDistance = surfaceDistance;
+    output.score = Number.POSITIVE_INFINITY;
+    return output;
   }
 
   const alignment = cameraForward.dot(toExhibit.normalize());
   const minAlignment = isTouchDevice ? -0.2 : -0.05;
   if (alignment < minAlignment) {
-    return {
-      exhibit,
-      isInRange: false,
-      distance: centerDistance,
-      surfaceDistance,
-      score: Number.POSITIVE_INFINITY,
-    };
+    output.exhibit = exhibit;
+    output.isInRange = false;
+    output.distance = centerDistance;
+    output.surfaceDistance = surfaceDistance;
+    output.score = Number.POSITIVE_INFINITY;
+    return output;
   }
 
   const desiredAlignment = isTouchDevice ? 0.15 : 0.5;
@@ -360,17 +389,17 @@ function getInteractMetrics(exhibit) {
     score -= 0.3;
   }
 
-  return {
-    exhibit,
-    isInRange: true,
-    distance: centerDistance,
-    surfaceDistance,
-    score,
-  };
+  output.exhibit = exhibit;
+  output.isInRange = true;
+  output.distance = centerDistance;
+  output.surfaceDistance = surfaceDistance;
+  output.score = score;
+  return output;
 }
 
-function updateNearestLandmark(reference = world.getNearestExhibit(world.playerRig.position)) {
-  if (!reference) {
+function updateNearestLandmark(reference) {
+  const nextReference = reference ?? world.getNearestExhibit(world.playerRig.position);
+  if (!nextReference) {
     updateZoneStatus(
       refs,
       portfolioContent.status.lostZoneName,
@@ -380,13 +409,86 @@ function updateNearestLandmark(reference = world.getNearestExhibit(world.playerR
   }
 
   const surfaceDistance =
-    reference.surfaceDistance ?? world.getExhibitSurfaceDistance(reference.exhibit, world.playerRig.position);
+    nextReference.surfaceDistance ??
+    world.getExhibitSurfaceDistance(nextReference.exhibit, world.playerRig.position);
   const distanceText =
     surfaceDistance <= world.config.interactDistance
       ? "You are within inspecting distance."
-      : `${surfaceDistance.toFixed(1)} meters from ${reference.exhibit.title}.`;
+      : `${surfaceDistance.toFixed(1)} meters from ${nextReference.exhibit.title}.`;
 
-  updateZoneStatus(refs, reference.exhibit.zone, distanceText);
+  updateZoneStatus(refs, nextReference.exhibit.zone, distanceText);
+}
+
+function updateDebugPanel(delta) {
+  if (!appState.debugOpen) {
+    return;
+  }
+
+  appState.debugFrameCount += 1;
+  appState.debugSampleTime += delta;
+  if (appState.debugSampleTime < DEBUG_SAMPLE_INTERVAL) {
+    return;
+  }
+
+  updateDebugMetrics(refs, {
+    visible: true,
+    fps: Math.round(appState.debugFrameCount / appState.debugSampleTime),
+    graphicsQuality: experienceSettings.graphicsQuality,
+    drawCalls: world.renderer.info.render.calls,
+    triangles: world.renderer.info.render.triangles,
+  });
+
+  appState.debugFrameCount = 0;
+  appState.debugSampleTime = 0;
+}
+
+function createInteractMetrics() {
+  return {
+    exhibit: null,
+    isInRange: false,
+    distance: Number.POSITIVE_INFINITY,
+    surfaceDistance: Number.POSITIVE_INFINITY,
+    score: Number.POSITIVE_INFINITY,
+  };
+}
+
+function copyInteractMetrics(source, target) {
+  target.exhibit = source.exhibit;
+  target.isInRange = source.isInRange;
+  target.distance = source.distance;
+  target.surfaceDistance = source.surfaceDistance;
+  target.score = source.score;
+}
+
+function flagInteractionRefresh() {
+  appState.interactionDirty = true;
+  appState.interactionRefreshTimer = INTERACTION_REFRESH_INTERVAL;
+}
+
+function toggleDebugPanel() {
+  appState.debugOpen = !appState.debugOpen;
+  appState.debugFrameCount = 0;
+  appState.debugSampleTime = 0;
+
+  updateDebugMetrics(refs, {
+    visible: appState.debugOpen,
+    fps: 0,
+    graphicsQuality: experienceSettings.graphicsQuality,
+    drawCalls: world.renderer.info.render.calls,
+    triangles: world.renderer.info.render.triangles,
+  });
+}
+
+function scheduleResize() {
+  if (appState.pendingResizeFrame) {
+    return;
+  }
+
+  appState.pendingResizeFrame = window.requestAnimationFrame(() => {
+    appState.pendingResizeFrame = 0;
+    world.setSize(refs.canvas.clientWidth || window.innerWidth, refs.canvas.clientHeight || window.innerHeight);
+    flagInteractionRefresh();
+  });
 }
 
 function openExhibit(exhibit) {
@@ -408,6 +510,7 @@ function openExhibit(exhibit) {
     isTouchDevice,
     isIntroOpen: appState.introOpen,
   });
+  flagInteractionRefresh();
 }
 
 function closeExhibit(restoreControl) {
@@ -418,6 +521,8 @@ function closeExhibit(restoreControl) {
   if (restoreControl && !isTouchDevice) {
     requestPointerLock();
   }
+
+  flagInteractionRefresh();
 }
 
 function applyExperienceSettings() {
@@ -430,14 +535,23 @@ function applyExperienceSettings() {
     pointerLocked: appState.pointerLocked,
     settingsOpen: appState.settingsOpen,
   });
+  if (appState.debugOpen) {
+    updateDebugMetrics(refs, {
+      visible: true,
+      fps: 0,
+      graphicsQuality: experienceSettings.graphicsQuality,
+      drawCalls: world.renderer.info.render.calls,
+      triangles: world.renderer.info.render.triangles,
+    });
+  }
   saveExperienceSettings(experienceSettings);
-  updateInteractionUI();
+  flagInteractionRefresh();
 }
 
 function handleEnterRealm() {
   appState.introOpen = false;
   refs.introPanel.classList.add("hidden");
-  updateInteractionUI();
+  flagInteractionRefresh();
   requestPointerLock();
 }
 
@@ -463,6 +577,7 @@ function handleToggleSettingsMenu() {
     pointerLocked: appState.pointerLocked,
     settingsOpen: appState.settingsOpen,
   });
+  flagInteractionRefresh();
 }
 
 function handleTogglePointerLock() {
@@ -491,7 +606,7 @@ function handleSelectSensitivity(value) {
 function handleSelectGraphicsQuality(value) {
   experienceSettings.graphicsQuality = value;
   applyExperienceSettings();
-  onResize();
+  scheduleResize();
 }
 
 function handleCanvasClick() {
@@ -556,6 +671,7 @@ function handlePointerLockChange() {
     pointerLocked: appState.pointerLocked,
     settingsOpen: appState.settingsOpen,
   });
+  flagInteractionRefresh();
 }
 
 function handleDocumentMouseMove(event) {
@@ -577,6 +693,12 @@ function handleDocumentKeyDown(event) {
     return;
   }
 
+  if (event.code === "Backquote") {
+    event.preventDefault();
+    toggleDebugPanel();
+    return;
+  }
+
   if (event.code === "Escape" && appState.settingsOpen) {
     appState.settingsOpen = false;
     updateUtilityState(refs, portfolioContent, {
@@ -584,6 +706,7 @@ function handleDocumentKeyDown(event) {
       pointerLocked: appState.pointerLocked,
       settingsOpen: appState.settingsOpen,
     });
+    flagInteractionRefresh();
     return;
   }
 
@@ -700,7 +823,7 @@ function requestPointerLock() {
 }
 
 function clearMovement() {
-  Object.keys(controls).forEach((key) => {
+  controlKeys.forEach((key) => {
     controls[key] = false;
   });
   refs.controlButtons.forEach((button) => {
@@ -720,5 +843,5 @@ function endTouchLook(event) {
 }
 
 function onResize() {
-  world.setSize(window.innerWidth, window.innerHeight);
+  scheduleResize();
 }

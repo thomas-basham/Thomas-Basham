@@ -3,139 +3,127 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Thomas Basham | Full Stack Engineer</title>
+    <meta
+      name="description"
+      content="Walk through a fantasy world and explore Thomas Basham's projects, stack, certifications, and contact links."
+    />
+    <title>Thomas Basham | Fantasy Portfolio Realm</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Manrope:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <style>
-      :root {
-        --primary: #7f5af0;
-        --accent: #2cb67d;
-        --bg: #0f0e17;
-        --text: #fffffe;
-        --subtle: #a7a9be;
-      }
-
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-
-      body {
-        background: var(--bg);
-        color: var(--text);
-        font-family: "Fira Code", monospace;
-        overflow-x: hidden;
-      }
-
-      .hero {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        text-align: center;
-        padding: 2rem;
-        background: radial-gradient(circle at center, #1a1a2e, #0f0e17);
-      }
-
-      .hero h1 {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-        color: var(--primary);
-        animation: fadeInUp 1s ease-out forwards;
-      }
-
-      .hero p {
-        font-size: 1.2rem;
-        color: var(--subtle);
-        animation: fadeInUp 1.5s ease-out forwards;
-      }
-
-      .hero img {
-        width: 180px;
-        height: auto;
-        object-fit: cover;
-        position: absolute;
-        top: -25px;
-        left: 0;
-      }
-
-      .circle-container {
-        margin-bottom: 1.5rem;
-        animation: fadeInUp 0.8s ease-out forwards;
-        box-shadow: 0 0 20px var(--primary);
-        width: 180px;
-        height: 180px;
-        border-radius: 50%;
-        overflow: hidden;
-        position: relative;
-      }
-
-      .links {
-        margin-top: 2rem;
-        display: flex;
-        gap: 1.5rem;
-        flex-wrap: wrap;
-        justify-content: center;
-      }
-
-      .links a {
-        text-decoration: none;
-        color: var(--accent);
-        border: 2px solid var(--accent);
-        padding: 0.6rem 1.2rem;
-        border-radius: 12px;
-        transition: 0.3s ease;
-        font-weight: bold;
-      }
-
-      .links a:hover {
-        background: var(--accent);
-        color: var(--bg);
-      }
-
-      @keyframes fadeInUp {
-        from {
-          opacity: 0;
-          transform: translateY(40px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      .footer {
-        text-align: center;
-        padding: 2rem;
-        font-size: 0.9rem;
-        color: var(--subtle);
-      }
-    </style>
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="hero">
-      <div class="circle-container">
-        <img src="headshot.jpeg" alt="Thomas Basham" />
-      </div>
-      <h1>Hi, I'm Thomas Basham</h1>
-      <p>Full Stack Engineer | Cloud Engineer | AWS Certified</p>
-      <div class="links">
-        <a href="https://github.com/thomas-basham" target="_blank">GitHub</a>
-        <a href="https://linkedin.com/in/thomas-basham" target="_blank"
-          >LinkedIn</a
-        >
-        <a href="mailto:bashamtg@gmail.com">Email Me</a>
-        <a
-          href="https://docs.google.com/document/d/1r2gCG-SukSTMMatzpvsP5FPkeMxlnhf3ZzH7Da187Fo/edit?usp=sharing"
-          target="_blank"
-          >Resume</a
-        >
+    <div class="app-shell">
+      <canvas id="world" aria-label="Three-dimensional portfolio world"></canvas>
+
+      <div class="hud">
+        <header class="top-bar">
+          <div class="top-bar__brand">
+            <span class="eyebrow">Fantasy Portfolio</span>
+            <h1>Thomas Basham</h1>
+          </div>
+
+          <div class="top-bar__status">
+            <span id="zone-name">Arrival Meadow</span>
+            <span id="zone-distance">Follow the lantern path into the realm.</span>
+          </div>
+        </header>
+
+        <section class="panel panel--intro" id="intro-panel">
+          <span class="eyebrow">Enter the Realm</span>
+          <h2>The portfolio is now a playable world.</h2>
+          <p>
+            Walk a fantasy landscape in first person. Each shrine holds part of
+            the portfolio: projects, current stack, AWS credentials, and contact
+            portals.
+          </p>
+
+          <div class="intro-grid">
+            <div>
+              <h3>Desktop</h3>
+              <p><strong>WASD</strong> move, <strong>mouse</strong> look, <strong>shift</strong> sprint, <strong>E</strong> inspect.</p>
+            </div>
+            <div>
+              <h3>Mobile</h3>
+              <p>Use the on-screen sigils to move and drag the world to look around.</p>
+            </div>
+          </div>
+
+          <div class="panel__actions">
+            <button id="enter-realm" class="action-button action-button--primary" type="button">
+              Enter the Realm
+            </button>
+            <a
+              class="action-button"
+              href="https://github.com/thomas-basham"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub
+            </a>
+            <a
+              class="action-button"
+              href="https://linkedin.com/in/thomas-basham"
+              target="_blank"
+              rel="noreferrer"
+            >
+              LinkedIn
+            </a>
+          </div>
+        </section>
+
+        <section class="panel panel--inspect hidden" id="inspect-panel" aria-live="polite">
+          <span class="eyebrow" id="inspect-zone">Landmark</span>
+          <h2 id="inspect-title"></h2>
+          <p class="panel__kicker" id="inspect-kicker"></p>
+          <p id="inspect-body"></p>
+          <ul class="panel__bullets" id="inspect-bullets"></ul>
+          <div class="panel__actions" id="inspect-actions"></div>
+        </section>
+
+        <button class="prompt hidden" id="inspect-prompt" type="button">
+          <span class="prompt__eyebrow">Nearby Landmark</span>
+          <span class="prompt__title" id="prompt-title">Inspect</span>
+          <span class="prompt__hint" id="prompt-hint">Press E to inspect</span>
+        </button>
+
+        <aside class="legend" id="controls-legend">
+          <span class="eyebrow">Controls</span>
+          <p id="controls-copy">WASD move. Mouse looks. Shift sprints. E inspects.</p>
+        </aside>
+
+        <div class="crosshair" id="crosshair" aria-hidden="true"></div>
+
+        <section class="mobile-controls" id="mobile-controls" aria-label="Mobile controls">
+          <div class="control-pad">
+            <button class="control-button" data-control="forward" type="button">▲</button>
+            <button class="control-button" data-control="left" type="button">◀</button>
+            <button class="control-button" data-control="backward" type="button">▼</button>
+            <button class="control-button" data-control="right" type="button">▶</button>
+          </div>
+
+          <div class="control-pad control-pad--look">
+            <button class="control-button" data-control="lookUp" type="button">▲</button>
+            <button class="control-button" data-control="turnLeft" type="button">◀</button>
+            <button class="control-button" data-control="lookDown" type="button">▼</button>
+            <button class="control-button" data-control="turnRight" type="button">▶</button>
+          </div>
+        </section>
       </div>
     </div>
-    <div class="footer">Made with ❤️ and lots of coffee in Renton, WA</div>
+
+    <noscript>
+      <div class="noscript">
+        JavaScript is required for the 3D portfolio. Visit
+        <a href="https://github.com/thomas-basham">GitHub</a> or
+        <a href="https://linkedin.com/in/thomas-basham">LinkedIn</a>.
+      </div>
+    </noscript>
+
+    <script type="module" src="./main.js"></script>
   </body>
 </html>

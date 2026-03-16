@@ -86,6 +86,22 @@ const thomas = {
 - Add or move a portfolio landmark by editing an exhibit entry in `app/content.js`, especially `type`, `position`, `accent`, and `actions`.
 - Leave `app/world.js` alone unless you want to change scene composition or gameplay behavior.
 
+### Accessibility Checklist
+
+- Added dialog semantics, labels, and described-by relationships for the intro, settings, inspect, and fallback panels.
+- Improved keyboard support with focus management for modal-style panels, Escape-based exits, and clearer focus return after panels close.
+- Strengthened focus-visible styling, touch target sizing, and text contrast across the HUD and fallback portfolio.
+- Clarified pointer-lock behavior in the UI so desktop users know how to enable mouse-look and how to exit it.
+- Reduced HUD clutter while primary panels are open so recruiters and keyboard users are not competing with every overlay at once.
+- Kept reduced-motion support for both the 3D experience and the fallback interface.
+- Improved screen-reader support for the inspect prompt, fallback mode visibility, and WebGL failure handling.
+
+#### Remaining 3D Limitations
+
+- First-person exploration still relies on pointer lock for the best desktop experience, which is inherently less screen-reader-friendly than the fallback portfolio mode.
+- The live 3D scene communicates spatial proximity visually and through interaction prompts, but it is not a full non-visual spatial navigation experience.
+- The built-in 2D portfolio mode is the recommended path for users who prefer keyboard-only, screen-reader-first, or reduced-complexity navigation.
+
 ---
 
 ### Let's Connect

@@ -80,6 +80,7 @@ body.is-locked #world {
 
 .top-bar__brand,
 .top-bar__status,
+.quick-cta,
 .panel,
 .legend,
 .prompt {
@@ -96,6 +97,7 @@ body.is-locked #world {
 }
 
 .top-bar__brand h1,
+.quick-cta h2,
 .panel h2 {
   margin: 0;
   font-family: "Cinzel", Georgia, serif;
@@ -110,6 +112,38 @@ body.is-locked #world {
 .top-bar__status {
   max-width: min(30rem, 45vw);
   text-align: right;
+}
+
+.quick-cta {
+  width: min(23rem, 34vw);
+  padding: 0.95rem 1rem;
+  border-radius: 22px;
+  pointer-events: auto;
+}
+
+.quick-cta h2 {
+  font-size: 1rem;
+}
+
+.quick-cta p {
+  margin: 0.45rem 0 0;
+  color: rgba(247, 241, 227, 0.8);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.quick-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.quick-cta .action-button {
+  min-height: 2.25rem;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.84rem;
 }
 
 .top-bar__status span {
@@ -618,6 +652,14 @@ body.is-locked #world {
     text-align: left;
   }
 
+  .quick-cta {
+    width: min(24rem, 100%);
+  }
+
+  .quick-cta__actions {
+    justify-content: flex-start;
+  }
+
   .panel--inspect {
     left: 1rem;
     right: 1rem;
@@ -688,5 +730,9 @@ body.is-locked #world {
 
   .mobile-actions {
     width: min(7rem, 24vw);
+  }
+
+  .quick-cta {
+    width: 100%;
   }
 }

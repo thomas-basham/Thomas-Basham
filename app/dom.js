@@ -75,6 +75,11 @@ export function getDomRefs() {
     zoneDistance: document.getElementById("zone-distance"),
     pointerToggle: document.getElementById("pointer-toggle"),
     pointerHint: document.getElementById("pointer-hint"),
+    fallbackCta: document.getElementById("fallback-cta"),
+    fallbackCtaEyebrow: document.getElementById("fallback-cta-eyebrow"),
+    fallbackCtaTitle: document.getElementById("fallback-cta-title"),
+    fallbackCtaBody: document.getElementById("fallback-cta-body"),
+    fallbackCtaActions: document.getElementById("fallback-cta-actions"),
     settingsToggle: document.getElementById("settings-toggle"),
     settingsPanel: document.getElementById("settings-panel"),
     settingsEyebrow: document.getElementById("settings-eyebrow"),
@@ -127,6 +132,15 @@ export function hydrateStaticContent(refs, content, isTouchDevice, actionHandler
   refs.zoneName.textContent = content.status.defaultZoneName;
   refs.zoneDistance.textContent = content.status.defaultZoneDistance;
   refs.settingsToggle.textContent = content.utility.settingsButton;
+  refs.fallbackCtaEyebrow.textContent = content.fallbackCta.eyebrow;
+  refs.fallbackCtaTitle.textContent = content.fallbackCta.title;
+  refs.fallbackCtaBody.textContent = content.fallbackCta.body;
+  renderActionList(
+    refs.fallbackCtaActions,
+    content.fallbackCta.actions,
+    content.links,
+    actionHandlers
+  );
   refs.settingsEyebrow.textContent = content.settings.eyebrow;
   refs.settingsTitle.textContent = content.settings.title;
   refs.reducedMotionLabel.textContent = content.settings.reducedMotion.label;

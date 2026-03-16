@@ -1,13 +1,13 @@
 export const portfolioContent = {
   brand: {
-    eyebrow: "Fantasy Portfolio",
+    eyebrow: "Full Stack Developer Portfolio",
     title: "Thomas Basham",
   },
   status: {
     defaultZoneName: "Arrival Meadow",
-    defaultZoneDistance: "Follow the lantern path into the realm.",
+    defaultZoneDistance: "Follow the lantern path to featured work, current focus, certifications, and direct contact.",
     lostZoneName: "Wandering the Wilds",
-    lostZoneDistance: "The lantern trail has faded.",
+    lostZoneDistance: "The main path is behind you. Featured work and contact remain ahead.",
   },
   controls: {
     eyebrow: "Controls",
@@ -51,26 +51,53 @@ export const portfolioContent = {
     },
   },
   intro: {
-    eyebrow: "Enter the Realm",
-    title: "The portfolio is now a playable world.",
+    eyebrow: "Enter the Portfolio",
+    title: "A professional portfolio, staged as a playable world.",
     body:
-      "Walk a fantasy landscape in first person. Each shrine holds part of the portfolio: projects, current stack, AWS credentials, and contact portals.",
+      "Recruiters, hiring managers, and clients can explore the world in first person or use the fast path. The landmarks are organized around featured projects, current focus, core stack, AWS credentials, and direct contact.",
     cards: [
       {
-        title: "Desktop",
-        body: "WASD move, mouse look, shift sprint, E inspect, Esc releases the cursor.",
+        title: "Featured Projects",
+        body: "Start with the flagship case studies to see product thinking, data work, and full-stack delivery in real-world domains.",
       },
       {
-        title: "Mobile",
-        body: "Use the on-screen sigils to move, Run to sprint, and drag the world to look around.",
+        title: "Current Focus",
+        body: "The Builder's Beacon covers what Thomas is building now: AI-assisted workflows, cloud-native apps, and developer education.",
+      },
+      {
+        title: "Direct Review",
+        body: "If you do not want to navigate the world, use the quick links for resume, GitHub, LinkedIn, and contact.",
       },
     ],
     actions: [
       {
         type: "button",
         id: "enterRealm",
-        label: "Enter the Realm",
+        label: "Explore the World",
         variant: "primary",
+      },
+      {
+        type: "link",
+        hrefKey: "resume",
+        label: "Open Resume",
+      },
+      {
+        type: "link",
+        hrefKey: "email",
+        label: "Email Thomas",
+      },
+    ],
+  },
+  fallbackCta: {
+    eyebrow: "Prefer the Fast Path?",
+    title: "Skip the Walkthrough",
+    body:
+      "Open the resume, review profiles, or start a direct conversation without navigating the 3D world.",
+    actions: [
+      {
+        type: "link",
+        hrefKey: "resume",
+        label: "Resume",
       },
       {
         type: "link",
@@ -81,6 +108,11 @@ export const portfolioContent = {
         type: "link",
         hrefKey: "linkedin",
         label: "LinkedIn",
+      },
+      {
+        type: "link",
+        hrefKey: "email",
+        label: "Contact",
       },
     ],
   },
@@ -128,25 +160,32 @@ export const portfolioContent = {
       id: "about",
       type: "portrait",
       zone: "Hall of the Builder",
+      labelEyebrow: "Full Stack Developer",
       title: "Thomas Basham",
-      kicker: "Full Stack Engineer | Cloud Developer | AWS Certified",
+      kicker: "Full stack developer with cloud depth, AWS certifications, and a teacher's clarity",
       body:
-        "I build cloud-native apps with a maintainer's mindset: clear architecture, practical systems design, and code that can survive growth.",
+        "I build useful web products end to end: frontend experience, backend systems, data workflows, and cloud delivery. The through-line in my work is practical engineering, clear communication, and systems that stay understandable after launch.",
       bullets: [
-        "Frontend: React, Next.js, TypeScript, TailwindCSS, SWR.",
-        "Backend: Node.js, Express, Python, FastAPI, Django, SQL.",
-        "Cloud: AWS, GCP, Docker, GitHub Actions, scalable delivery pipelines.",
+        "Frontend: React, Next.js, TypeScript, and UI systems designed for speed, clarity, and maintainability.",
+        "Backend: Node.js, Express, Python, FastAPI, Django, SQL, and data-heavy application flows.",
+        "Cloud: AWS-certified delivery across compute, databases, IAM, automation, and deployment pipelines.",
+        "Teaching experience: I explain technical decisions clearly, which helps teams, clients, and stakeholders move faster with confidence.",
       ],
       actions: [
         {
           type: "link",
           hrefKey: "resume",
-          label: "Resume",
+          label: "Open Resume",
         },
         {
           type: "link",
           hrefKey: "email",
-          label: "Email",
+          label: "Start a Conversation",
+        },
+        {
+          type: "link",
+          hrefKey: "linkedin",
+          label: "View LinkedIn",
         },
       ],
       accent: "#f4dca9",
@@ -160,22 +199,29 @@ export const portfolioContent = {
       id: "skills",
       type: "grove",
       zone: "Skill Grove",
-      title: "Current Stack",
-      kicker: "Modern web systems with room to scale",
+      labelEyebrow: "Core Stack",
+      title: "How I Build",
+      kicker: "Modern full-stack delivery with cloud discipline",
       body:
-        "My core stack stays grounded in shipping. I care about fast interfaces, reliable back ends, and cloud infrastructure that does not become a liability later.",
+        "My stack choices favor shipping speed now and maintainability later. I like tooling that helps products move quickly without pushing complexity into operations, documentation, or handoff.",
       bullets: [
-        "React, Next.js, Node.js, Express, FastAPI, Django.",
-        "AWS services across Lambda, ECS, EC2, RDS, DynamoDB, API Gateway, and IAM.",
-        "Current focus: AI workflows, data pipelines, and cleaner automation.",
+        "Frontend: React, Next.js, TypeScript, TailwindCSS, and responsive product UI work.",
+        "Backend: Node.js, Express, Python, FastAPI, Django, API design, data handling, and automation.",
+        "Cloud: AWS services including Lambda, ECS, EC2, RDS, DynamoDB, API Gateway, IAM, plus Docker and GitHub Actions.",
       ],
       actions: [
         {
           type: "link",
           hrefKey: "github",
-          label: "GitHub",
+          label: "Browse GitHub",
+        },
+        {
+          type: "link",
+          hrefKey: "linkedin",
+          label: "View LinkedIn",
         },
       ],
+      sigils: ["React", "AWS", "API"],
       accent: "#8cc485",
       position: {
         x: -24,
@@ -184,23 +230,64 @@ export const portfolioContent = {
       colliderRadius: 4,
     },
     {
+      id: "focus",
+      type: "grove",
+      zone: "Builder's Beacon",
+      labelEyebrow: "Current Focus",
+      title: "Now Building",
+      kicker: "AI workflows, cloud-native apps, and developer education",
+      body:
+        "Right now I am most interested in work that combines product usefulness with operational clarity: AI-assisted workflows, data-informed web applications, and cloud systems that teams can actually maintain. I also care about teaching developers how to make sound technical decisions under real constraints.",
+      bullets: [
+        "AI-assisted tooling and workflow automation that removes repetitive manual work.",
+        "Cloud-first applications with practical architecture, clean interfaces, and sensible deployment paths.",
+        "Teaching and mentoring that turns technical complexity into clear action for teams and clients.",
+      ],
+      actions: [
+        {
+          type: "link",
+          hrefKey: "email",
+          label: "Discuss Current Work",
+        },
+        {
+          type: "link",
+          hrefKey: "resume",
+          label: "Open Resume",
+        },
+      ],
+      sigils: ["AI", "Cloud", "Teach"],
+      emphasisScale: 1.08,
+      accent: "#d7c98b",
+      position: {
+        x: 0,
+        z: -18,
+      },
+      colliderRadius: 4.3,
+    },
+    {
       id: "certifications",
       type: "sanctum",
       zone: "Cloud Sanctum",
+      labelEyebrow: "AWS Certified",
       title: "AWS Certifications",
-      kicker: "Proof that the cloud work is not just theory",
+      kicker: "Credentials that reinforce hands-on cloud engineering",
       body:
-        "The sanctum displays two AWS badges and the infrastructure bias behind them: architecting systems, choosing services intentionally, and shipping with operational discipline.",
+        "The certifications matter because they match how I already like to work: choose services intentionally, keep system boundaries clear, and build with operational responsibility in mind.",
       bullets: [
         "AWS Certified Cloud Practitioner.",
         "AWS Certified Solutions Architect Associate.",
-        "Hands-on work with containerized workloads, databases, and secure service boundaries.",
+        "Hands-on cloud work across compute, databases, IAM, deployment flows, and secure service boundaries.",
       ],
       actions: [
         {
           type: "link",
           hrefKey: "linkedin",
-          label: "LinkedIn",
+          label: "Verify on LinkedIn",
+        },
+        {
+          type: "link",
+          hrefKey: "resume",
+          label: "Open Resume",
         },
       ],
       accent: "#9bd2d9",
@@ -214,20 +301,29 @@ export const portfolioContent = {
       id: "troutlytics",
       type: "project",
       zone: "River Forge",
+      labelEyebrow: "Featured Project",
+      featuredTag: "Featured Project",
+      featuredRank: 2,
+      emphasisScale: 1.08,
       title: "Troutlytics",
-      kicker: "Data-driven fishing app for real-world use",
+      kicker: "Turns Washington trout stocking updates into a product people can actually use",
       body:
-        "A product-focused app with real-time trout stocking insights and analytics. Built around turning raw updates into something genuinely useful for anglers.",
+        "Stocking information exists, but it is rarely presented in a way that helps anglers make faster decisions. Troutlytics turns that moving data into a cleaner web experience focused on timing, discovery, and repeat usefulness in the field.",
       bullets: [
-        "Domain-specific UX grounded in outdoor data.",
-        "Clean presentation of changing data and practical insights.",
-        "A project that balances utility, clarity, and speed.",
+        "Problem: time-sensitive fish-stocking data is hard to turn into confident trip planning.",
+        "Solution: a product-focused web experience that surfaces recent activity, organizes the data, and keeps the signal readable.",
+        "Stack and value: TypeScript-based frontend work, domain-focused UI, and product thinking aimed at practical repeat use.",
       ],
       actions: [
         {
           type: "link",
           hrefKey: "troutlytics",
-          label: "View Project",
+          label: "Review Repository",
+        },
+        {
+          type: "link",
+          hrefKey: "email",
+          label: "Discuss This Build",
         },
       ],
       accent: "#dd8a4c",
@@ -242,20 +338,29 @@ export const portfolioContent = {
       id: "creel",
       type: "project",
       zone: "Sound Observatory",
+      labelEyebrow: "Flagship Project",
+      featuredTag: "Flagship Project",
+      featuredRank: 1,
+      emphasisScale: 1.16,
       title: "Puget Sound Creel Reports",
-      kicker: "Geospatial ramp and survey data, made legible",
+      kicker: "Makes fragmented public fisheries data searchable, visual, and decision-ready",
       body:
-        "A web app that aggregates and visualizes boat-ramp creel survey data across Puget Sound so anglers can move from scattered reports to useful signal.",
+        "Public creel and boat-ramp data is valuable, but scattered sources make it hard to explore or compare. This project pulls those inputs into a single web application so users can search, interpret, and act on the information with much less friction.",
       bullets: [
-        "Geospatial data thinking applied to a real local domain.",
-        "Interfaces shaped around search, exploration, and decision support.",
-        "Turns public fisheries data into something more actionable.",
+        "Problem: useful Puget Sound fisheries data is spread across public sources and difficult to work with quickly.",
+        "Solution: a search- and exploration-driven application that organizes location data and survey context into one workflow.",
+        "Stack and value: full-stack web engineering, geospatial data handling, and practical UI design for a real local use case.",
       ],
       actions: [
         {
           type: "link",
           hrefKey: "creelReports",
-          label: "View Project",
+          label: "Review Repository",
+        },
+        {
+          type: "link",
+          hrefKey: "email",
+          label: "Discuss This Build",
         },
       ],
       accent: "#76c4d2",
@@ -270,35 +375,36 @@ export const portfolioContent = {
       id: "contact",
       type: "portal",
       zone: "Portal Nexus",
+      labelEyebrow: "Direct Contact",
       title: "Let's Connect",
-      kicker: "The exits from the realm",
+      kicker: "Direct paths for recruiting conversations, client work, and technical follow-up",
       body:
-        "If you want code, context, or a direct conversation, the nexus opens the clean paths out: GitHub, LinkedIn, email, and the full resume.",
+        "If you want the concise version, use the portal. Resume, GitHub, LinkedIn, and email are all here so you can review the work or start a conversation without wandering the world.",
       bullets: [
-        "GitHub for source and side projects.",
-        "LinkedIn for work history and network.",
-        "Email for direct contact and collaboration.",
+        "Resume for experience, stack, projects, and AWS credentials.",
+        "GitHub for repositories, implementation style, and side work.",
+        "LinkedIn and email for recruiting conversations, collaborations, and client inquiries.",
       ],
       actions: [
         {
           type: "link",
           hrefKey: "github",
-          label: "GitHub",
+          label: "View GitHub",
         },
         {
           type: "link",
           hrefKey: "linkedin",
-          label: "LinkedIn",
+          label: "View LinkedIn",
         },
         {
           type: "link",
           hrefKey: "email",
-          label: "Email",
+          label: "Email Thomas",
         },
         {
           type: "link",
           hrefKey: "resume",
-          label: "Resume",
+          label: "Open Resume",
         },
       ],
       accent: "#f0b56b",

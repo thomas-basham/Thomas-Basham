@@ -3,6 +3,22 @@ export const portfolioContent = {
     eyebrow: "Full Stack Developer Portfolio",
     title: "Thomas Basham",
   },
+  seo: {
+    siteName: "Thomas Basham Portfolio",
+    siteUrl: "https://your-domain.com",
+    canonicalPath: "/",
+    ogImagePath: "/headshot.jpeg",
+    defaultTitle: "Thomas Basham | Full Stack Developer Portfolio",
+    defaultDescription:
+      "Thomas Basham is a full stack developer with cloud skills, AWS certifications, teaching experience, and real-world projects. Review featured work, resume, and direct contact paths.",
+    worldTitle: "Thomas Basham | 3D Portfolio World",
+    worldDescription:
+      "Explore Thomas Basham's interactive 3D portfolio featuring featured projects, AWS certifications, current focus, and direct contact options.",
+    fallbackTitle: "Thomas Basham | Portfolio Overview",
+    fallbackDescription:
+      "Review Thomas Basham's recruiter-friendly portfolio overview with featured projects, cloud skills, certifications, resume access, and contact information.",
+    themeColor: "#13242a",
+  },
   status: {
     defaultZoneName: "Arrival Meadow",
     defaultZoneDistance: "Follow the lantern path to featured work, current focus, certifications, and direct contact.",

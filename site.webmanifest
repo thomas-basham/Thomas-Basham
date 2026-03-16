@@ -1,0 +1,16 @@
+{
+  "name": "Thomas Basham Portfolio",
+  "short_name": "Thomas Basham",
+  "description": "Full stack developer portfolio with a 3D world and an accessible 2D fallback mode.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#13242a",
+  "theme_color": "#13242a",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

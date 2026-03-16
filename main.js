@@ -24,6 +24,18 @@ import { THREE } from "./app/three.js";
 import { createWorld } from "./app/world.js";
 
 const refs = getDomRefs();
+const metadataRefs = {
+  metaDescription: document.getElementById("meta-description"),
+  canonicalUrl: document.getElementById("canonical-url"),
+  themeColor: document.getElementById("meta-theme-color"),
+  ogTitle: document.getElementById("meta-og-title"),
+  ogDescription: document.getElementById("meta-og-description"),
+  ogUrl: document.getElementById("meta-og-url"),
+  ogImage: document.getElementById("meta-og-image"),
+  twitterTitle: document.getElementById("meta-twitter-title"),
+  twitterDescription: document.getElementById("meta-twitter-description"),
+  twitterImage: document.getElementById("meta-twitter-image"),
+};
 const isTouchDevice =
   window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -196,6 +208,7 @@ function syncAppShell() {
     introOpen: appState.introOpen,
     worldAvailable,
   });
+  updateDocumentMetadata();
 
   if (appState.fallbackOpen || !worldAvailable) {
     appState.nearbyExhibit = null;
@@ -207,6 +220,36 @@ function syncAppShell() {
     refs.mobileInspect.disabled = true;
     refs.mobileInspect.classList.add("is-disabled");
   }
+}
+
+function updateDocumentMetadata() {
+  const { seo } = portfolioContent;
+  const inWorldMode = !appState.introOpen && !appState.fallbackOpen && isWorldAvailable();
+  const inFallbackMode = appState.fallbackOpen || appState.webglUnavailable;
+  const title = inWorldMode
+    ? seo.worldTitle
+    : inFallbackMode
+      ? seo.fallbackTitle
+      : seo.defaultTitle;
+  const description = inWorldMode
+    ? seo.worldDescription
+    : inFallbackMode
+      ? seo.fallbackDescription
+      : seo.defaultDescription;
+  const canonicalUrl = new URL(seo.canonicalPath, seo.siteUrl).toString();
+  const imageUrl = new URL(seo.ogImagePath, seo.siteUrl).toString();
+
+  document.title = title;
+  metadataRefs.metaDescription?.setAttribute("content", description);
+  metadataRefs.canonicalUrl?.setAttribute("href", canonicalUrl);
+  metadataRefs.themeColor?.setAttribute("content", seo.themeColor);
+  metadataRefs.ogTitle?.setAttribute("content", title);
+  metadataRefs.ogDescription?.setAttribute("content", description);
+  metadataRefs.ogUrl?.setAttribute("content", canonicalUrl);
+  metadataRefs.ogImage?.setAttribute("content", imageUrl);
+  metadataRefs.twitterTitle?.setAttribute("content", title);
+  metadataRefs.twitterDescription?.setAttribute("content", description);
+  metadataRefs.twitterImage?.setAttribute("content", imageUrl);
 }
 
 function isElementVisible(element) {

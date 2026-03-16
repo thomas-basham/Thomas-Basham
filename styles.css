@@ -69,6 +69,15 @@ body.is-locked #world {
   padding: 1.25rem 1.5rem 0;
 }
 
+.top-bar__utilities {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.6rem;
+  min-width: min(24rem, 34vw);
+}
+
 .top-bar__brand,
 .top-bar__status,
 .panel,
@@ -156,6 +165,14 @@ body.is-locked #world {
   z-index: 2;
 }
 
+.panel--settings {
+  position: fixed;
+  right: 1.5rem;
+  top: 6.3rem;
+  z-index: 3;
+  width: min(26rem, calc(100vw - 2rem));
+}
+
 .intro-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -202,6 +219,124 @@ body.is-locked #world {
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 1.2rem;
+}
+
+.utility-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+.utility-button,
+.toggle-chip,
+.setting-choice {
+  appearance: none;
+  pointer-events: auto;
+  border: 1px solid rgba(244, 220, 169, 0.22);
+  background: rgba(8, 20, 24, 0.72);
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.utility-button {
+  min-height: 2.6rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: 999px;
+}
+
+.utility-button:hover,
+.utility-button:focus-visible,
+.toggle-chip:hover,
+.toggle-chip:focus-visible,
+.setting-choice:hover,
+.setting-choice:focus-visible {
+  border-color: rgba(244, 220, 169, 0.58);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.utility-hint,
+.settings-note {
+  margin: 0;
+  max-width: 24rem;
+  color: rgba(247, 241, 227, 0.74);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.settings-note {
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+  margin-top: 1rem;
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.95rem 0;
+  border-top: 1px solid rgba(244, 220, 169, 0.12);
+}
+
+.setting-row:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.setting-copy {
+  min-width: 0;
+}
+
+.setting-copy h3 {
+  margin: 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.95rem;
+  color: var(--gold);
+}
+
+.setting-copy p {
+  margin: 0.45rem 0 0;
+  color: rgba(247, 241, 227, 0.72);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.toggle-chip {
+  min-width: 4.5rem;
+  min-height: 2.35rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.setting-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.setting-choice {
+  min-height: 2.35rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.toggle-chip.is-selected,
+.setting-choice.is-selected {
+  background: rgba(220, 139, 79, 0.32);
+  border-color: rgba(244, 220, 169, 0.6);
 }
 
 .action-button {
@@ -328,6 +463,7 @@ body.is-locked #world {
   right: 0;
   bottom: 0;
   justify-content: space-between;
+  align-items: flex-end;
   gap: 1rem;
   padding: 0 1rem 1rem;
 }
@@ -338,6 +474,14 @@ body.is-locked #world {
   grid-template-columns: repeat(3, 1fr);
   gap: 0.55rem;
   width: min(12rem, 44vw);
+}
+
+.mobile-actions {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: min(8rem, 24vw);
 }
 
 .control-pad .control-button:nth-child(1) {
@@ -372,9 +516,20 @@ body.is-locked #world {
   -webkit-user-select: none;
 }
 
+.control-button--wide {
+  min-height: 3.5rem;
+  font-weight: 700;
+}
+
 .control-button.is-active {
   background: rgba(220, 139, 79, 0.4);
   border-color: rgba(244, 220, 169, 0.56);
+}
+
+.control-button.is-disabled,
+.control-button:disabled {
+  opacity: 0.48;
+  border-color: rgba(244, 220, 169, 0.12);
 }
 
 .hidden {
@@ -407,7 +562,7 @@ body.is-locked #world {
   }
 
   .legend {
-    bottom: 7.8rem;
+    bottom: 8.9rem;
   }
 }
 
@@ -421,6 +576,19 @@ body.is-locked #world {
     text-align: left;
   }
 
+  .top-bar__utilities {
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  .utility-actions {
+    justify-content: flex-start;
+  }
+
+  .utility-hint {
+    text-align: left;
+  }
+
   .panel--inspect {
     left: 1rem;
     right: 1rem;
@@ -428,8 +596,24 @@ body.is-locked #world {
     width: auto;
   }
 
+  .panel--settings {
+    left: 1rem;
+    right: 1rem;
+    top: auto;
+    bottom: 1rem;
+    width: auto;
+  }
+
   .intro-grid {
     grid-template-columns: 1fr;
+  }
+
+  .setting-row {
+    flex-direction: column;
+  }
+
+  .setting-options {
+    justify-content: flex-start;
   }
 }
 
@@ -453,10 +637,23 @@ body.is-locked #world {
     left: 1rem;
     right: 1rem;
     width: auto;
-    bottom: 8rem;
+    bottom: 10rem;
   }
 
   .prompt {
-    bottom: 8rem;
+    bottom: 10rem;
+  }
+
+  .mobile-controls {
+    gap: 0.65rem;
+    padding: 0 0.75rem 0.75rem;
+  }
+
+  .control-pad {
+    width: min(10rem, 36vw);
+  }
+
+  .mobile-actions {
+    width: min(7rem, 24vw);
   }
 }

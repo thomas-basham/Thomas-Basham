@@ -11,8 +11,44 @@ export const portfolioContent = {
   },
   controls: {
     eyebrow: "Controls",
-    desktop: "WASD moves. Mouse looks. Shift sprints. E inspects nearby landmarks.",
-    mobile: "Use the movement sigils, drag to look, and tap a landmark prompt to inspect.",
+    desktop:
+      "WASD moves. Mouse looks. Shift sprints. E inspects nearby landmarks. Esc releases the cursor.",
+    mobile:
+      "Use the movement sigils, drag to look, tap Run to sprint, and tap Inspect near a landmark.",
+  },
+  utility: {
+    settingsButton: "Settings",
+    pointerLockedLabel: "Release Cursor",
+    pointerUnlockedLabel: "Capture Cursor",
+    pointerLockedHint: "Mouse-look is active. Press Esc to release the cursor.",
+    pointerUnlockedHint: "Capture the cursor for full first-person mouse-look.",
+    mobileHint: "Touch look stays active. Adjust sensitivity or motion below.",
+  },
+  settings: {
+    eyebrow: "Journey Settings",
+    title: "Experience Tuning",
+    reducedMotion: {
+      label: "Reduced Motion",
+      description: "Reduces camera bob, sprint zoom, and ambient motion.",
+      on: "On",
+      off: "Off",
+    },
+    sensitivity: {
+      label: "Look Sensitivity",
+      options: [
+        { id: "low", label: "Low" },
+        { id: "normal", label: "Normal" },
+        { id: "high", label: "High" },
+      ],
+    },
+    graphics: {
+      label: "Graphics Quality",
+      options: [
+        { id: "low", label: "Low" },
+        { id: "medium", label: "Medium" },
+        { id: "high", label: "High" },
+      ],
+    },
   },
   intro: {
     eyebrow: "Enter the Realm",
@@ -22,11 +58,11 @@ export const portfolioContent = {
     cards: [
       {
         title: "Desktop",
-        body: "WASD move, mouse look, shift sprint, E inspect.",
+        body: "WASD move, mouse look, shift sprint, E inspect, Esc releases the cursor.",
       },
       {
         title: "Mobile",
-        body: "Use the on-screen sigils to move and drag the world to look around.",
+        body: "Use the on-screen sigils to move, Run to sprint, and drag the world to look around.",
       },
     ],
     actions: [
@@ -57,6 +93,10 @@ export const portfolioContent = {
   inspect: {
     defaultZone: "Landmark",
     closeLabel: "Continue Exploring",
+  },
+  mobileActions: {
+    sprint: "Run",
+    inspect: "Inspect",
   },
   noScript:
     "JavaScript is required for the 3D portfolio. Please enable it to explore the scene.",

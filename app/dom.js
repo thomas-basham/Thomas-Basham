@@ -43,6 +43,28 @@ function renderIntroCards(container, cards) {
   });
 }
 
+function renderChoiceGroup(container, options, groupName, onSelect) {
+  container.innerHTML = "";
+  options.forEach((option) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "setting-choice";
+    button.dataset.group = groupName;
+    button.dataset.value = option.id;
+    button.textContent = option.label;
+    button.addEventListener("click", () => onSelect(option.id));
+    container.appendChild(button);
+  });
+}
+
+function updateChoiceGroup(container, selectedValue) {
+  container.querySelectorAll(".setting-choice").forEach((button) => {
+    const isSelected = button.dataset.value === selectedValue;
+    button.classList.toggle("is-selected", isSelected);
+    button.setAttribute("aria-pressed", String(isSelected));
+  });
+}
+
 export function getDomRefs() {
   return {
     body: document.body,
@@ -51,6 +73,20 @@ export function getDomRefs() {
     brandTitle: document.getElementById("brand-title"),
     zoneName: document.getElementById("zone-name"),
     zoneDistance: document.getElementById("zone-distance"),
+    pointerToggle: document.getElementById("pointer-toggle"),
+    pointerHint: document.getElementById("pointer-hint"),
+    settingsToggle: document.getElementById("settings-toggle"),
+    settingsPanel: document.getElementById("settings-panel"),
+    settingsEyebrow: document.getElementById("settings-eyebrow"),
+    settingsTitle: document.getElementById("settings-title"),
+    settingsNote: document.getElementById("settings-note"),
+    reducedMotionLabel: document.getElementById("reduced-motion-label"),
+    reducedMotionDescription: document.getElementById("reduced-motion-description"),
+    reducedMotionToggle: document.getElementById("reduced-motion-toggle"),
+    sensitivityLabel: document.getElementById("sensitivity-label"),
+    sensitivityOptions: document.getElementById("sensitivity-options"),
+    graphicsLabel: document.getElementById("graphics-label"),
+    graphicsOptions: document.getElementById("graphics-options"),
     introPanel: document.getElementById("intro-panel"),
     introEyebrow: document.getElementById("intro-eyebrow"),
     introTitle: document.getElementById("intro-title"),
@@ -72,6 +108,9 @@ export function getDomRefs() {
     controlsCopy: document.getElementById("controls-copy"),
     crosshair: document.getElementById("crosshair"),
     noScriptCopy: document.getElementById("noscript-copy"),
+    mobileInspect: document.getElementById("mobile-inspect"),
+    mobileSprintLabel: document.getElementById("mobile-sprint-label"),
+    mobileInspectLabel: document.getElementById("mobile-inspect-label"),
     controlButtons: Array.from(document.querySelectorAll("[data-control]")),
   };
 }
@@ -81,6 +120,15 @@ export function hydrateStaticContent(refs, content, isTouchDevice, actionHandler
   refs.brandTitle.textContent = content.brand.title;
   refs.zoneName.textContent = content.status.defaultZoneName;
   refs.zoneDistance.textContent = content.status.defaultZoneDistance;
+  refs.settingsToggle.textContent = content.utility.settingsButton;
+  refs.settingsEyebrow.textContent = content.settings.eyebrow;
+  refs.settingsTitle.textContent = content.settings.title;
+  refs.reducedMotionLabel.textContent = content.settings.reducedMotion.label;
+  refs.reducedMotionDescription.textContent = content.settings.reducedMotion.description;
+  refs.sensitivityLabel.textContent = content.settings.sensitivity.label;
+  refs.graphicsLabel.textContent = content.settings.graphics.label;
+  refs.mobileSprintLabel.textContent = content.mobileActions.sprint;
+  refs.mobileInspectLabel.textContent = content.mobileActions.inspect;
 
   refs.introEyebrow.textContent = content.intro.eyebrow;
   refs.introTitle.textContent = content.intro.title;
@@ -99,9 +147,29 @@ export function hydrateStaticContent(refs, content, isTouchDevice, actionHandler
     ? content.controls.mobile
     : content.controls.desktop;
   refs.crosshair.classList.toggle("hidden", isTouchDevice);
+  refs.pointerToggle.classList.toggle("hidden", isTouchDevice);
+  refs.mobileInspect.disabled = true;
+  refs.mobileInspect.classList.add("is-disabled");
   if (refs.noScriptCopy) {
     refs.noScriptCopy.textContent = content.noScript;
   }
+
+  renderChoiceGroup(
+    refs.sensitivityOptions,
+    content.settings.sensitivity.options,
+    "sensitivity",
+    actionHandlers.selectSensitivity
+  );
+  renderChoiceGroup(
+    refs.graphicsOptions,
+    content.settings.graphics.options,
+    "graphics",
+    actionHandlers.selectGraphicsQuality
+  );
+  refs.settingsToggle.addEventListener("click", actionHandlers.toggleSettingsMenu);
+  refs.pointerToggle.addEventListener("click", actionHandlers.togglePointerLock);
+  refs.reducedMotionToggle.addEventListener("click", actionHandlers.toggleReducedMotion);
+  refs.mobileInspect.addEventListener("click", actionHandlers.mobileInspect);
 }
 
 export function renderInspectPanel(refs, content, exhibit, onClose) {
@@ -150,4 +218,34 @@ export function setPromptState(refs, content, options) {
 export function updateZoneStatus(refs, zoneName, distanceText) {
   refs.zoneName.textContent = zoneName;
   refs.zoneDistance.textContent = distanceText;
+}
+
+export function updateUtilityState(refs, content, options) {
+  const { isTouchDevice, pointerLocked, settingsOpen } = options;
+  const hint = isTouchDevice
+    ? content.utility.mobileHint
+    : pointerLocked
+      ? content.utility.pointerLockedHint
+      : content.utility.pointerUnlockedHint;
+  refs.pointerToggle.textContent = pointerLocked
+    ? content.utility.pointerLockedLabel
+    : content.utility.pointerUnlockedLabel;
+  refs.pointerToggle.setAttribute("aria-pressed", String(pointerLocked));
+  refs.pointerHint.textContent = hint;
+  refs.settingsNote.textContent = hint;
+  refs.settingsToggle.setAttribute("aria-expanded", String(settingsOpen));
+  refs.settingsToggle.setAttribute("aria-pressed", String(settingsOpen));
+  refs.settingsPanel.classList.toggle("hidden", !settingsOpen);
+}
+
+export function updateSettingsControls(refs, content, settings) {
+  const reducedMotionOn = settings.reducedMotion;
+  refs.reducedMotionToggle.textContent = reducedMotionOn
+    ? content.settings.reducedMotion.on
+    : content.settings.reducedMotion.off;
+  refs.reducedMotionToggle.setAttribute("aria-pressed", String(reducedMotionOn));
+  refs.reducedMotionToggle.classList.toggle("is-selected", reducedMotionOn);
+
+  updateChoiceGroup(refs.sensitivityOptions, settings.sensitivity);
+  updateChoiceGroup(refs.graphicsOptions, settings.graphicsQuality);
 }

@@ -31,7 +31,56 @@
             <span id="zone-name"></span>
             <span id="zone-distance"></span>
           </div>
+
+          <div class="top-bar__utilities">
+            <div class="utility-actions">
+              <button class="utility-button" id="pointer-toggle" type="button"></button>
+              <button
+                class="utility-button"
+                id="settings-toggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="settings-panel"
+              ></button>
+            </div>
+            <p class="utility-hint" id="pointer-hint"></p>
+          </div>
         </header>
+
+        <section
+          class="panel panel--settings hidden"
+          id="settings-panel"
+          aria-labelledby="settings-title"
+        >
+          <span class="eyebrow" id="settings-eyebrow"></span>
+          <h2 id="settings-title"></h2>
+
+          <div class="settings-list">
+            <div class="setting-row">
+              <div class="setting-copy">
+                <h3 id="reduced-motion-label"></h3>
+                <p id="reduced-motion-description"></p>
+              </div>
+              <button class="toggle-chip" id="reduced-motion-toggle" type="button"></button>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-copy">
+                <h3 id="sensitivity-label"></h3>
+              </div>
+              <div class="setting-options" id="sensitivity-options" role="group"></div>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-copy">
+                <h3 id="graphics-label"></h3>
+              </div>
+              <div class="setting-options" id="graphics-options" role="group"></div>
+            </div>
+          </div>
+
+          <p class="settings-note" id="settings-note"></p>
+        </section>
 
         <section class="panel panel--intro" id="intro-panel">
           <span class="eyebrow" id="intro-eyebrow"></span>
@@ -78,6 +127,15 @@
             <button class="control-button" data-control="turnLeft" type="button">◀</button>
             <button class="control-button" data-control="lookDown" type="button">▼</button>
             <button class="control-button" data-control="turnRight" type="button">▶</button>
+          </div>
+
+          <div class="mobile-actions">
+            <button class="control-button control-button--wide" data-control="sprint" type="button">
+              <span id="mobile-sprint-label"></span>
+            </button>
+            <button class="control-button control-button--wide" id="mobile-inspect" type="button">
+              <span id="mobile-inspect-label"></span>
+            </button>
           </div>
         </section>
       </div>

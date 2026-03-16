@@ -5,21 +5,30 @@ import {
   hydrateStaticContent,
   renderInspectPanel,
   setPromptState,
+  updateSettingsControls,
+  updateUtilityState,
   updateZoneStatus,
 } from "./app/dom.js";
+import {
+  getSensitivityProfile,
+  loadExperienceSettings,
+  saveExperienceSettings,
+} from "./app/settings.js";
 import { THREE } from "./app/three.js";
 import { createWorld } from "./app/world.js";
 
-// Runtime state
 const refs = getDomRefs();
 const isTouchDevice =
   window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
+const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const experienceSettings = loadExperienceSettings(isTouchDevice, prefersReducedMotion);
 const world = createWorld({
   canvas: refs.canvas,
   isTouchDevice,
   assetPaths: portfolioContent.assets,
   exhibitContent: portfolioContent.exhibits,
 });
+
 const controls = {
   forward: false,
   backward: false,
@@ -31,24 +40,38 @@ const controls = {
   lookUp: false,
   lookDown: false,
 };
+
 const appState = {
   activeExhibit: null,
   nearbyExhibit: null,
   pointerLocked: false,
   introOpen: true,
+  settingsOpen: false,
   bobTimer: 0,
+  cameraBobX: 0,
+  cameraBobY: 0,
+  cameraRoll: 0,
+  sprintBlend: 0,
   touchLookId: null,
   lastTouchX: 0,
   lastTouchY: 0,
   initialized: false,
   listenersBound: false,
 };
+
 const moveVelocity = new THREE.Vector3();
 const worldUp = new THREE.Vector3(0, 1, 0);
+const eyePosition = new THREE.Vector3();
+const cameraForward = new THREE.Vector3();
+const toExhibit = new THREE.Vector3();
+const movementDirection = new THREE.Vector3();
+const forwardDirection = new THREE.Vector3();
+const rightDirection = new THREE.Vector3();
+
+let sensitivityProfile = getSensitivityProfile(experienceSettings.sensitivity);
 
 initialize();
 
-// Bootstrap
 function initialize() {
   if (appState.initialized) {
     return;
@@ -57,6 +80,12 @@ function initialize() {
   appState.initialized = true;
   hydrateStaticContent(refs, portfolioContent, isTouchDevice, {
     enterRealm: handleEnterRealm,
+    mobileInspect: handleInspectPrompt,
+    toggleSettingsMenu: handleToggleSettingsMenu,
+    togglePointerLock: handleTogglePointerLock,
+    toggleReducedMotion: handleToggleReducedMotion,
+    selectSensitivity: handleSelectSensitivity,
+    selectGraphicsQuality: handleSelectGraphicsQuality,
   });
   setPromptState(refs, portfolioContent, {
     visible: false,
@@ -65,15 +94,16 @@ function initialize() {
   });
 
   world.buildStaticScene();
+  applyExperienceSettings();
   bindEventListeners();
 
   const fontsReady = document.fonts ? document.fonts.ready : Promise.resolve();
   fontsReady.finally(() => {
     world.buildExhibits();
-    updateNearestLandmark();
+    updateInteractionUI();
   });
 
-  updateNearestLandmark();
+  updateInteractionUI();
   world.renderer.setAnimationLoop(animate);
 }
 
@@ -104,10 +134,310 @@ function bindEventListeners() {
   });
 }
 
-// Input handlers
+function animate() {
+  const delta = Math.min(world.clock.getDelta(), 0.05);
+  const elapsed = world.clock.elapsedTime;
+
+  updatePlayer(delta);
+  updateInteractionUI();
+  world.updateAmbientMotion(elapsed, delta);
+  world.renderer.render(world.scene, world.camera);
+}
+
+function updatePlayer(delta) {
+  if (appState.introOpen || appState.activeExhibit || appState.settingsOpen) {
+    moveVelocity.multiplyScalar(Math.exp(-6 * delta));
+    appState.sprintBlend = THREE.MathUtils.damp(appState.sprintBlend, 0, 6, delta);
+    updateCameraEffects(delta, 0, 0);
+    return;
+  }
+
+  applyLookButtons(delta);
+
+  const inputForward = Number(controls.forward) - Number(controls.backward);
+  const inputRight = Number(controls.right) - Number(controls.left);
+  const inputMagnitude = Math.hypot(inputForward, inputRight);
+  const hasMovementInput = inputMagnitude > 0;
+
+  movementDirection.set(0, 0, 0);
+  forwardDirection.set(0, 0, -1).applyAxisAngle(worldUp, world.yawRig.rotation.y);
+  rightDirection.set(1, 0, 0).applyAxisAngle(worldUp, world.yawRig.rotation.y);
+
+  if (hasMovementInput) {
+    movementDirection
+      .addScaledVector(forwardDirection, inputForward)
+      .addScaledVector(rightDirection, inputRight)
+      .normalize();
+  }
+
+  const sprintRequested = controls.sprint && hasMovementInput && (isTouchDevice || inputForward > 0);
+  appState.sprintBlend = THREE.MathUtils.damp(
+    appState.sprintBlend,
+    sprintRequested ? 1 : 0,
+    5.4,
+    delta
+  );
+
+  const targetSpeed = THREE.MathUtils.lerp(5.2, 7.8, appState.sprintBlend);
+  const desiredVelocity = movementDirection.multiplyScalar(targetSpeed);
+  const damping = hasMovementInput ? 10.5 : 7.2;
+  moveVelocity.lerp(desiredVelocity, 1 - Math.exp(-damping * delta));
+
+  const resolvedPosition = world.resolvePlayerMotion(
+    world.playerRig.position,
+    moveVelocity.x * delta,
+    moveVelocity.z * delta,
+    world.config.playerRadius
+  );
+
+  world.playerRig.position.x = resolvedPosition.x;
+  world.playerRig.position.z = resolvedPosition.z;
+  world.playerRig.position.y = THREE.MathUtils.damp(
+    world.playerRig.position.y,
+    resolvedPosition.y,
+    10,
+    delta
+  );
+
+  updateCameraEffects(delta, moveVelocity.length(), inputRight);
+}
+
+function updateCameraEffects(delta, speed, strafeInput) {
+  const motionEnabled = !experienceSettings.reducedMotion;
+  const speedFactor = THREE.MathUtils.clamp(speed / 7.8, 0, 1);
+  const strideSpeed = THREE.MathUtils.lerp(5.4, 8.8, appState.sprintBlend);
+
+  if (speedFactor > 0.04) {
+    appState.bobTimer += delta * strideSpeed * (0.55 + speedFactor * 0.45);
+  }
+
+  const bobStrength = motionEnabled ? speedFactor : 0;
+  const targetBobX =
+    Math.sin(appState.bobTimer * 0.5) * (0.014 + appState.sprintBlend * 0.006) * bobStrength;
+  const targetBobY =
+    Math.abs(Math.sin(appState.bobTimer)) *
+    (0.024 + appState.sprintBlend * 0.008) *
+    bobStrength;
+  const targetRoll = motionEnabled
+    ? THREE.MathUtils.clamp((-strafeInput * 0.016 - appState.sprintBlend * 0.004) * speedFactor, -0.024, 0.024)
+    : 0;
+
+  appState.cameraBobX = THREE.MathUtils.damp(appState.cameraBobX, targetBobX, 12, delta);
+  appState.cameraBobY = THREE.MathUtils.damp(appState.cameraBobY, targetBobY, 12, delta);
+  appState.cameraRoll = THREE.MathUtils.damp(appState.cameraRoll, targetRoll, 9, delta);
+
+  world.camera.position.x = appState.cameraBobX;
+  world.camera.position.y = world.config.eyeHeight + appState.cameraBobY;
+  world.camera.rotation.z = appState.cameraRoll;
+
+  const targetFov = world.config.baseFov + (motionEnabled ? appState.sprintBlend * 1.2 : 0);
+  const nextFov = THREE.MathUtils.damp(world.camera.fov, targetFov, 6, delta);
+  if (Math.abs(nextFov - world.camera.fov) > 0.01) {
+    world.camera.fov = nextFov;
+    world.camera.updateProjectionMatrix();
+  }
+}
+
+function applyLookButtons(delta) {
+  if (controls.turnLeft) {
+    world.yawRig.rotation.y += world.config.turnSpeed * sensitivityProfile.buttonTurn * delta;
+  }
+  if (controls.turnRight) {
+    world.yawRig.rotation.y -= world.config.turnSpeed * sensitivityProfile.buttonTurn * delta;
+  }
+  if (controls.lookUp) {
+    world.pitchRig.rotation.x = THREE.MathUtils.clamp(
+      world.pitchRig.rotation.x + world.config.lookSpeed * sensitivityProfile.buttonLook * delta,
+      -1.05,
+      1.05
+    );
+  }
+  if (controls.lookDown) {
+    world.pitchRig.rotation.x = THREE.MathUtils.clamp(
+      world.pitchRig.rotation.x - world.config.lookSpeed * sensitivityProfile.buttonLook * delta,
+      -1.05,
+      1.05
+    );
+  }
+}
+
+function updateInteractionUI() {
+  const nearest = world.getNearestExhibit(world.playerRig.position);
+  world.camera.getWorldPosition(eyePosition);
+  world.camera.getWorldDirection(cameraForward);
+  const target = getStableInteractTarget();
+
+  appState.nearbyExhibit = target?.exhibit ?? null;
+  updateNearestLandmark(target ?? nearest);
+
+  const promptVisible = Boolean(appState.nearbyExhibit) && !appState.activeExhibit && !appState.settingsOpen;
+  setPromptState(refs, portfolioContent, {
+    visible: promptVisible,
+    title: appState.nearbyExhibit?.title,
+    isTouchDevice,
+    isIntroOpen: appState.introOpen,
+  });
+
+  refs.mobileInspect.disabled = !appState.nearbyExhibit;
+  refs.mobileInspect.classList.toggle("is-disabled", !appState.nearbyExhibit);
+}
+
+function getStableInteractTarget() {
+  if (!world.exhibits.length) {
+    return null;
+  }
+
+  // Keep the current target unless a new candidate is meaningfully better.
+  const bestCandidate = findBestInteractCandidate();
+  const currentCandidate = appState.nearbyExhibit
+    ? getInteractMetrics(appState.nearbyExhibit)
+    : null;
+
+  if (currentCandidate?.isInRange) {
+    const hysteresis = isTouchDevice ? 0.9 : 0.6;
+    if (!bestCandidate || currentCandidate.score <= bestCandidate.score + hysteresis) {
+      return currentCandidate;
+    }
+  }
+
+  return bestCandidate;
+}
+
+function findBestInteractCandidate() {
+  let best = null;
+
+  world.exhibits.forEach((exhibit) => {
+    const metrics = getInteractMetrics(exhibit);
+    if (!metrics.isInRange) {
+      return;
+    }
+
+    if (!best || metrics.score < best.score) {
+      best = metrics;
+    }
+  });
+
+  return best;
+}
+
+function getInteractMetrics(exhibit) {
+  toExhibit.copy(exhibit.position).sub(eyePosition);
+
+  const centerDistance = toExhibit.length();
+  const surfaceDistance = Math.max(0, centerDistance - exhibit.colliderRadius);
+  const maxSurfaceDistance =
+    world.config.interactDistance +
+    (appState.nearbyExhibit?.id === exhibit.id ? 1.15 : 0.45);
+
+  if (surfaceDistance > maxSurfaceDistance) {
+    return {
+      exhibit,
+      isInRange: false,
+      distance: centerDistance,
+      surfaceDistance,
+      score: Number.POSITIVE_INFINITY,
+    };
+  }
+
+  const alignment = cameraForward.dot(toExhibit.normalize());
+  const minAlignment = isTouchDevice ? -0.2 : -0.05;
+  if (alignment < minAlignment) {
+    return {
+      exhibit,
+      isInRange: false,
+      distance: centerDistance,
+      surfaceDistance,
+      score: Number.POSITIVE_INFINITY,
+    };
+  }
+
+  const desiredAlignment = isTouchDevice ? 0.15 : 0.5;
+  const penaltyScale = isTouchDevice ? 3.2 : 5.2;
+  const alignmentPenalty = Math.max(0, desiredAlignment - alignment) * penaltyScale;
+  let score = surfaceDistance + alignmentPenalty;
+
+  if (appState.nearbyExhibit?.id === exhibit.id) {
+    score -= 0.3;
+  }
+
+  return {
+    exhibit,
+    isInRange: true,
+    distance: centerDistance,
+    surfaceDistance,
+    score,
+  };
+}
+
+function updateNearestLandmark(reference = world.getNearestExhibit(world.playerRig.position)) {
+  if (!reference) {
+    updateZoneStatus(
+      refs,
+      portfolioContent.status.lostZoneName,
+      portfolioContent.status.lostZoneDistance
+    );
+    return;
+  }
+
+  const surfaceDistance =
+    reference.surfaceDistance ?? world.getExhibitSurfaceDistance(reference.exhibit, world.playerRig.position);
+  const distanceText =
+    surfaceDistance <= world.config.interactDistance
+      ? "You are within inspecting distance."
+      : `${surfaceDistance.toFixed(1)} meters from ${reference.exhibit.title}.`;
+
+  updateZoneStatus(refs, reference.exhibit.zone, distanceText);
+}
+
+function openExhibit(exhibit) {
+  if (!exhibit || appState.activeExhibit?.id === exhibit.id) {
+    return;
+  }
+
+  clearMovement();
+  if (appState.pointerLocked && document.pointerLockElement === refs.canvas) {
+    document.exitPointerLock();
+  }
+
+  appState.activeExhibit = exhibit;
+  renderInspectPanel(refs, portfolioContent, exhibit, () => {
+    closeExhibit(true);
+  });
+  setPromptState(refs, portfolioContent, {
+    visible: false,
+    isTouchDevice,
+    isIntroOpen: appState.introOpen,
+  });
+}
+
+function closeExhibit(restoreControl) {
+  appState.activeExhibit = null;
+  hideInspectPanel(refs);
+  updateInteractionUI();
+
+  if (restoreControl && !isTouchDevice) {
+    requestPointerLock();
+  }
+}
+
+function applyExperienceSettings() {
+  sensitivityProfile = getSensitivityProfile(experienceSettings.sensitivity);
+  world.applyPresentationSettings(experienceSettings);
+  refs.body.classList.toggle("is-reduced-motion", experienceSettings.reducedMotion);
+  updateSettingsControls(refs, portfolioContent, experienceSettings);
+  updateUtilityState(refs, portfolioContent, {
+    isTouchDevice,
+    pointerLocked: appState.pointerLocked,
+    settingsOpen: appState.settingsOpen,
+  });
+  saveExperienceSettings(experienceSettings);
+  updateInteractionUI();
+}
+
 function handleEnterRealm() {
   appState.introOpen = false;
   refs.introPanel.classList.add("hidden");
+  updateInteractionUI();
   requestPointerLock();
 }
 
@@ -117,8 +447,60 @@ function handleInspectPrompt() {
   }
 }
 
+function handleToggleSettingsMenu() {
+  appState.settingsOpen = !appState.settingsOpen;
+
+  if (appState.settingsOpen && appState.pointerLocked && document.pointerLockElement === refs.canvas) {
+    document.exitPointerLock();
+  }
+
+  if (appState.settingsOpen) {
+    clearMovement();
+  }
+
+  updateUtilityState(refs, portfolioContent, {
+    isTouchDevice,
+    pointerLocked: appState.pointerLocked,
+    settingsOpen: appState.settingsOpen,
+  });
+}
+
+function handleTogglePointerLock() {
+  if (isTouchDevice) {
+    return;
+  }
+
+  if (appState.pointerLocked && document.pointerLockElement === refs.canvas) {
+    document.exitPointerLock();
+    return;
+  }
+
+  requestPointerLock();
+}
+
+function handleToggleReducedMotion() {
+  experienceSettings.reducedMotion = !experienceSettings.reducedMotion;
+  applyExperienceSettings();
+}
+
+function handleSelectSensitivity(value) {
+  experienceSettings.sensitivity = value;
+  applyExperienceSettings();
+}
+
+function handleSelectGraphicsQuality(value) {
+  experienceSettings.graphicsQuality = value;
+  applyExperienceSettings();
+  onResize();
+}
+
 function handleCanvasClick() {
-  if (!appState.introOpen && !appState.activeExhibit && !isTouchDevice) {
+  if (
+    !appState.introOpen &&
+    !appState.activeExhibit &&
+    !appState.settingsOpen &&
+    !isTouchDevice
+  ) {
     requestPointerLock();
   }
 }
@@ -129,6 +511,7 @@ function handleCanvasPointerDown(event) {
     !event.isPrimary ||
     appState.activeExhibit ||
     appState.introOpen ||
+    appState.settingsOpen ||
     appState.touchLookId !== null
   ) {
     return;
@@ -149,9 +532,10 @@ function handleCanvasPointerMove(event) {
   const deltaY = event.clientY - appState.lastTouchY;
   appState.lastTouchX = event.clientX;
   appState.lastTouchY = event.clientY;
-  world.yawRig.rotation.y -= deltaX * 0.0065;
+
+  world.yawRig.rotation.y -= deltaX * 0.0058 * sensitivityProfile.touch;
   world.pitchRig.rotation.x = THREE.MathUtils.clamp(
-    world.pitchRig.rotation.x - deltaY * 0.0045,
+    world.pitchRig.rotation.x - deltaY * 0.0039 * sensitivityProfile.touch,
     -1.05,
     1.05
   );
@@ -160,16 +544,29 @@ function handleCanvasPointerMove(event) {
 function handlePointerLockChange() {
   appState.pointerLocked = document.pointerLockElement === refs.canvas;
   refs.body.classList.toggle("is-locked", appState.pointerLocked);
+
+  if (appState.pointerLocked) {
+    appState.settingsOpen = false;
+  } else {
+    clearMovement();
+  }
+
+  updateUtilityState(refs, portfolioContent, {
+    isTouchDevice,
+    pointerLocked: appState.pointerLocked,
+    settingsOpen: appState.settingsOpen,
+  });
 }
 
 function handleDocumentMouseMove(event) {
-  if (!appState.pointerLocked) {
+  if (!appState.pointerLocked || appState.settingsOpen) {
     return;
   }
 
-  world.yawRig.rotation.y -= event.movementX * 0.0022;
+  const mouseScale = sensitivityProfile.mouse;
+  world.yawRig.rotation.y -= event.movementX * 0.0021 * mouseScale;
   world.pitchRig.rotation.x = THREE.MathUtils.clamp(
-    world.pitchRig.rotation.x - event.movementY * 0.0017,
+    world.pitchRig.rotation.x - event.movementY * 0.00155 * mouseScale,
     -1.05,
     1.05
   );
@@ -180,28 +577,58 @@ function handleDocumentKeyDown(event) {
     return;
   }
 
+  if (event.code === "Escape" && appState.settingsOpen) {
+    appState.settingsOpen = false;
+    updateUtilityState(refs, portfolioContent, {
+      isTouchDevice,
+      pointerLocked: appState.pointerLocked,
+      settingsOpen: appState.settingsOpen,
+    });
+    return;
+  }
+
+  const movementBlocked = appState.settingsOpen || appState.activeExhibit;
+
   switch (event.code) {
     case "KeyW":
-      controls.forward = true;
+      if (!movementBlocked) {
+        controls.forward = true;
+      }
       break;
     case "KeyS":
-      controls.backward = true;
+      if (!movementBlocked) {
+        controls.backward = true;
+      }
       break;
     case "KeyA":
-      controls.left = true;
+      if (!movementBlocked) {
+        controls.left = true;
+      }
       break;
     case "KeyD":
-      controls.right = true;
+      if (!movementBlocked) {
+        controls.right = true;
+      }
       break;
     case "ShiftLeft":
     case "ShiftRight":
-      controls.sprint = true;
+      if (!movementBlocked) {
+        controls.sprint = true;
+      }
       break;
     case "KeyE":
+      if (appState.settingsOpen) {
+        break;
+      }
       if (appState.activeExhibit) {
         closeExhibit(true);
       } else if (appState.nearbyExhibit) {
         openExhibit(appState.nearbyExhibit);
+      }
+      break;
+    case "Comma":
+      if (!appState.introOpen && !appState.activeExhibit) {
+        handleToggleSettingsMenu();
       }
       break;
     case "Escape":
@@ -238,6 +665,10 @@ function handleDocumentKeyUp(event) {
 }
 
 function handleControlPointerDown(event) {
+  if (appState.settingsOpen || appState.activeExhibit) {
+    return;
+  }
+
   event.preventDefault();
   const button = event.currentTarget;
   const { control } = button.dataset;
@@ -253,187 +684,12 @@ function handleControlPointerUp(event) {
   button.classList.remove("is-active");
 }
 
-// Animation and movement
-function animate() {
-  const delta = Math.min(world.clock.getDelta(), 0.05);
-  const elapsed = world.clock.elapsedTime;
-
-  updatePlayer(delta);
-  updateExhibitUI();
-  world.updateAmbientMotion(elapsed, delta);
-  world.renderer.render(world.scene, world.camera);
-}
-
-function updatePlayer(delta) {
-  if (appState.introOpen || appState.activeExhibit) {
-    moveVelocity.multiplyScalar(Math.exp(-6 * delta));
-    return;
-  }
-
-  if (controls.turnLeft) {
-    world.yawRig.rotation.y += world.config.turnSpeed * delta;
-  }
-  if (controls.turnRight) {
-    world.yawRig.rotation.y -= world.config.turnSpeed * delta;
-  }
-  if (controls.lookUp) {
-    world.pitchRig.rotation.x = THREE.MathUtils.clamp(
-      world.pitchRig.rotation.x + world.config.lookSpeed * delta,
-      -1.05,
-      1.05
-    );
-  }
-  if (controls.lookDown) {
-    world.pitchRig.rotation.x = THREE.MathUtils.clamp(
-      world.pitchRig.rotation.x - world.config.lookSpeed * delta,
-      -1.05,
-      1.05
-    );
-  }
-
-  const inputForward = Number(controls.forward) - Number(controls.backward);
-  const inputRight = Number(controls.right) - Number(controls.left);
-  const direction = new THREE.Vector3();
-
-  if (inputForward || inputRight) {
-    const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(
-      worldUp,
-      world.yawRig.rotation.y
-    );
-    const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(
-      worldUp,
-      world.yawRig.rotation.y
-    );
-    direction
-      .addScaledVector(forward, inputForward)
-      .addScaledVector(right, inputRight)
-      .normalize();
-  }
-
-  const targetSpeed = controls.sprint && !isTouchDevice ? 8.2 : 5.4;
-  const desiredVelocity = direction.multiplyScalar(targetSpeed);
-  moveVelocity.lerp(desiredVelocity, 1 - Math.exp(-10 * delta));
-
-  attemptMove(moveVelocity.x * delta, moveVelocity.z * delta, delta);
-
-  appState.bobTimer += moveVelocity.length() * delta * 0.75;
-  const bobAmount =
-    moveVelocity.length() > 0.2 ? Math.sin(appState.bobTimer * 10) * 0.04 : 0;
-  world.camera.position.y = world.config.eyeHeight + bobAmount;
-}
-
-function attemptMove(stepX, stepZ, delta) {
-  const nextX = world.playerRig.position.x + stepX;
-  const nextZ = world.playerRig.position.z + stepZ;
-
-  if (!world.canOccupy(nextX, nextZ)) {
-    const tryX = world.playerRig.position.x + stepX;
-    if (world.canOccupy(tryX, world.playerRig.position.z)) {
-      world.playerRig.position.x = tryX;
-    }
-
-    const tryZ = world.playerRig.position.z + stepZ;
-    if (world.canOccupy(world.playerRig.position.x, tryZ)) {
-      world.playerRig.position.z = tryZ;
-    }
-  } else {
-    world.playerRig.position.x = nextX;
-    world.playerRig.position.z = nextZ;
-  }
-
-  const groundY = world.terrainHeight(world.playerRig.position.x, world.playerRig.position.z);
-  world.playerRig.position.y = THREE.MathUtils.damp(
-    world.playerRig.position.y,
-    groundY,
-    8,
-    delta
-  );
-}
-
-// UI state
-function updateExhibitUI() {
-  const nearest = world.getNearestExhibit(world.playerRig.position);
-  updateNearestLandmark(nearest);
-
-  if (!nearest || nearest.distance > world.config.interactDistance) {
-    appState.nearbyExhibit = null;
-    setPromptState(refs, portfolioContent, {
-      visible: false,
-      isTouchDevice,
-      isIntroOpen: appState.introOpen,
-    });
-    return;
-  }
-
-  appState.nearbyExhibit = nearest.exhibit;
-  setPromptState(refs, portfolioContent, {
-    visible: !appState.activeExhibit,
-    title: nearest.exhibit.title,
-    isTouchDevice,
-    isIntroOpen: appState.introOpen,
-  });
-}
-
-function updateNearestLandmark(nearest = world.getNearestExhibit(world.playerRig.position)) {
-  if (!nearest) {
-    updateZoneStatus(
-      refs,
-      portfolioContent.status.lostZoneName,
-      portfolioContent.status.lostZoneDistance
-    );
-    return;
-  }
-
-  const distanceText =
-    nearest.distance <= world.config.interactDistance
-      ? "You are within inspecting distance."
-      : `${nearest.distance.toFixed(1)} meters from ${nearest.exhibit.title}.`;
-  updateZoneStatus(refs, nearest.exhibit.zone, distanceText);
-}
-
-function openExhibit(exhibit) {
-  if (!exhibit || appState.activeExhibit?.id === exhibit.id) {
-    return;
-  }
-
-  appState.activeExhibit = exhibit;
-  appState.nearbyExhibit = exhibit;
-  renderInspectPanel(refs, portfolioContent, exhibit, () => {
-    closeExhibit(true);
-  });
-  setPromptState(refs, portfolioContent, {
-    visible: false,
-    isTouchDevice,
-    isIntroOpen: appState.introOpen,
-  });
-
-  if (document.pointerLockElement === refs.canvas) {
-    document.exitPointerLock();
-  }
-}
-
-function closeExhibit(restoreControl) {
-  appState.activeExhibit = null;
-  hideInspectPanel(refs);
-  if (appState.nearbyExhibit) {
-    setPromptState(refs, portfolioContent, {
-      visible: true,
-      title: appState.nearbyExhibit.title,
-      isTouchDevice,
-      isIntroOpen: appState.introOpen,
-    });
-  }
-  if (restoreControl && !isTouchDevice) {
-    requestPointerLock();
-  }
-}
-
-// Shared helpers
 function requestPointerLock() {
   if (
     isTouchDevice ||
     appState.introOpen ||
     appState.activeExhibit ||
+    appState.settingsOpen ||
     document.pointerLockElement === refs.canvas ||
     typeof refs.canvas.requestPointerLock !== "function"
   ) {

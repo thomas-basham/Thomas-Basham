@@ -12,12 +12,35 @@ import {
 const WORLD_CONFIG = {
   worldRadius: 88,
   eyeHeight: 1.72,
+  baseFov: 72,
   interactDistance: 7.25,
+  playerRadius: 0.92,
   turnSpeed: 1.55,
   lookSpeed: 1.15,
   spawn: {
     x: 0,
     z: 28,
+  },
+};
+
+const QUALITY_PROFILES = {
+  low: {
+    desktopPixelRatio: 1,
+    mobilePixelRatio: 0.9,
+    desktopShadows: false,
+    fogDensity: 0.0134,
+  },
+  medium: {
+    desktopPixelRatio: 1.45,
+    mobilePixelRatio: 1.15,
+    desktopShadows: false,
+    fogDensity: 0.0125,
+  },
+  high: {
+    desktopPixelRatio: 2,
+    mobilePixelRatio: 1.4,
+    desktopShadows: true,
+    fogDensity: 0.012,
   },
 };
 
@@ -27,9 +50,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     antialias: true,
     powerPreference: "high-performance",
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, isTouchDevice ? 1.5 : 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = !isTouchDevice;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -59,7 +80,10 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     floaters: [],
     pulsingLights: [],
     obstacleFields: [],
+    reducedMotion: false,
+    graphicsQuality: isTouchDevice ? "medium" : "high",
   };
+  const resolvedPosition = new THREE.Vector3();
   const textures = {
     headshot: loadTexture(textureLoader, assetPaths.headshot, maxAnisotropy),
     badgeCloud: loadTexture(textureLoader, assetPaths.badges.cloud, maxAnisotropy),
@@ -73,6 +97,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
   const playerRig = new THREE.Group();
   const yawRig = new THREE.Group();
   const pitchRig = new THREE.Group();
+  let keyLight = null;
 
   scene.add(playerRig);
   playerRig.add(yawRig);
@@ -86,6 +111,9 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     terrainHeight(WORLD_CONFIG.spawn.x, WORLD_CONFIG.spawn.z),
     WORLD_CONFIG.spawn.z
   );
+  camera.fov = WORLD_CONFIG.baseFov;
+  camera.updateProjectionMatrix();
+  setGraphicsQuality(worldState.graphicsQuality);
 
   return {
     camera,
@@ -100,7 +128,10 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     buildStaticScene,
     buildExhibits,
     canOccupy,
+    getExhibitSurfaceDistance,
     getNearestExhibit,
+    resolvePlayerMotion,
+    applyPresentationSettings,
     setSize,
     terrainHeight,
     updateAmbientMotion,
@@ -164,8 +195,38 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
   function setSize(width, height) {
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isTouchDevice ? 1.5 : 2));
+    renderer.setPixelRatio(getPixelRatioCap(worldState.graphicsQuality));
     renderer.setSize(width, height);
+  }
+
+  function applyPresentationSettings(settings) {
+    setReducedMotion(settings.reducedMotion);
+    setGraphicsQuality(settings.graphicsQuality);
+  }
+
+  function setReducedMotion(reducedMotion) {
+    worldState.reducedMotion = reducedMotion;
+  }
+
+  function setGraphicsQuality(graphicsQuality) {
+    worldState.graphicsQuality = graphicsQuality;
+    const profile = QUALITY_PROFILES[graphicsQuality] ?? QUALITY_PROFILES.medium;
+    const shadowsEnabled = !isTouchDevice && profile.desktopShadows;
+
+    renderer.setPixelRatio(getPixelRatioCap(graphicsQuality));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = shadowsEnabled;
+    scene.fog.density = profile.fogDensity;
+
+    if (keyLight) {
+      keyLight.castShadow = shadowsEnabled;
+    }
+  }
+
+  function getPixelRatioCap(graphicsQuality) {
+    const profile = QUALITY_PROFILES[graphicsQuality] ?? QUALITY_PROFILES.medium;
+    const cap = isTouchDevice ? profile.mobilePixelRatio : profile.desktopPixelRatio;
+    return Math.min(window.devicePixelRatio, cap);
   }
 
   function canOccupy(x, z) {
@@ -177,6 +238,55 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       const distance = Math.hypot(x - field.x, z - field.z);
       return distance < field.radius;
     });
+  }
+
+  function resolvePlayerMotion(position, stepX, stepZ, radius) {
+    resolvedPosition.set(position.x + stepX, position.y, position.z + stepZ);
+    const maxRadius = WORLD_CONFIG.worldRadius - radius;
+
+    // Push the player back out of any overlapping circular collider to avoid snagging.
+    for (let iteration = 0; iteration < 3; iteration += 1) {
+      let adjusted = false;
+      const centerDistance = Math.hypot(resolvedPosition.x, resolvedPosition.z);
+
+      if (centerDistance > maxRadius) {
+        const scale = maxRadius / Math.max(centerDistance, 0.0001);
+        resolvedPosition.x *= scale;
+        resolvedPosition.z *= scale;
+        adjusted = true;
+      }
+
+      worldState.obstacleFields.forEach((field) => {
+        const minDistance = field.radius + radius;
+        let dx = resolvedPosition.x - field.x;
+        let dz = resolvedPosition.z - field.z;
+        let distance = Math.hypot(dx, dz);
+
+        if (distance < minDistance) {
+          if (distance < 0.0001) {
+            dx = 1;
+            dz = 0;
+            distance = 1;
+          }
+
+          const pushScale = minDistance / distance;
+          resolvedPosition.x = field.x + dx * pushScale;
+          resolvedPosition.z = field.z + dz * pushScale;
+          adjusted = true;
+        }
+      });
+
+      if (!adjusted) {
+        break;
+      }
+    }
+
+    resolvedPosition.y = terrainHeight(resolvedPosition.x, resolvedPosition.z);
+    return resolvedPosition;
+  }
+
+  function getExhibitSurfaceDistance(exhibit, position) {
+    return Math.max(0, position.distanceTo(exhibit.position) - exhibit.colliderRadius);
   }
 
   function getNearestExhibit(position) {
@@ -193,14 +303,18 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
   }
 
   function updateAmbientMotion(elapsed, delta) {
+    const motionScale = worldState.reducedMotion ? 0.28 : 1;
+    const spinScale = worldState.reducedMotion ? 0.35 : 1;
+
     worldState.floaters.forEach((entry) => {
       if (entry.amplitude !== 0) {
         entry.object.position.y =
-          entry.baseY + Math.sin(elapsed * entry.speed + entry.phase) * entry.amplitude;
+          entry.baseY +
+          Math.sin(elapsed * entry.speed + entry.phase) * entry.amplitude * motionScale;
       }
 
       if (entry.spinY) {
-        entry.object.rotation.y += entry.spinY * delta;
+        entry.object.rotation.y += entry.spinY * delta * spinScale;
       }
     });
 
@@ -262,7 +376,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     const hemi = new THREE.HemisphereLight(0xc3dbe1, 0x1c2b2c, 1.45);
     scene.add(hemi);
 
-    const keyLight = new THREE.DirectionalLight(0xffd9aa, 1.9);
+    keyLight = new THREE.DirectionalLight(0xffd9aa, 1.9);
     keyLight.position.set(28, 40, 12);
     if (!isTouchDevice) {
       keyLight.castShadow = true;

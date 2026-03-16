@@ -42,6 +42,8 @@ const controls = {
   lookDown: false,
 };
 const controlKeys = Object.keys(controls);
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 const appState = {
   activeExhibit: null,
@@ -68,6 +70,7 @@ const appState = {
   debugFrameCount: 0,
   pendingResizeFrame: 0,
   renderLoopActive: false,
+  lastFocusedElement: null,
 };
 const INTERACTION_REFRESH_INTERVAL = isTouchDevice ? 0.12 : 0.08;
 const DEBUG_SAMPLE_INTERVAL = 0.25;
@@ -123,6 +126,11 @@ function initialize() {
   attemptWorldInitialization();
   applyExperienceSettings();
   syncAppShell();
+  window.requestAnimationFrame(() => {
+    if (appState.introOpen && !appState.fallbackOpen) {
+      focusPanel(refs.introPanel, [".action-button--primary", ".action-button"]);
+    }
+  });
 
   if (!world) {
     openFallbackMode({
@@ -169,7 +177,12 @@ function isWorldAvailable() {
 function syncAppShell() {
   const worldAvailable = isWorldAvailable();
 
-  refs.introPanel.classList.toggle("hidden", !appState.introOpen || appState.fallbackOpen);
+  refs.body.classList.toggle("is-intro-open", appState.introOpen && !appState.fallbackOpen);
+  refs.body.classList.toggle("is-settings-open", appState.settingsOpen);
+  refs.body.classList.toggle("is-inspect-open", Boolean(appState.activeExhibit));
+  const introHidden = !appState.introOpen || appState.fallbackOpen;
+  refs.introPanel.classList.toggle("hidden", introHidden);
+  refs.introPanel.setAttribute("aria-hidden", String(introHidden));
   updateFallbackState(refs, portfolioContent, {
     fallbackOpen: appState.fallbackOpen,
     worldAvailable,
@@ -180,6 +193,7 @@ function syncAppShell() {
     pointerLocked: appState.pointerLocked,
     settingsOpen: appState.settingsOpen,
     fallbackOpen: appState.fallbackOpen,
+    introOpen: appState.introOpen,
     worldAvailable,
   });
 
@@ -195,8 +209,133 @@ function syncAppShell() {
   }
 }
 
+function isElementVisible(element) {
+  if (!(element instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (element.closest(".hidden") || element.getAttribute("aria-hidden") === "true") {
+    return false;
+  }
+
+  const styles = window.getComputedStyle(element);
+  return styles.display !== "none" && styles.visibility !== "hidden";
+}
+
+function getFocusableElements(container) {
+  return Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR)).filter((element) => {
+    if (!(element instanceof HTMLElement)) {
+      return false;
+    }
+
+    return !element.hasAttribute("disabled") && isElementVisible(element);
+  });
+}
+
+function rememberFocusTarget(element = document.activeElement) {
+  appState.lastFocusedElement =
+    element instanceof HTMLElement && element !== document.body ? element : null;
+}
+
+function restoreFocusTarget(fallback) {
+  const fallbackTarget = isElementVisible(fallback)
+    ? fallback
+    : isElementVisible(refs.canvas)
+      ? refs.canvas
+      : null;
+  const target = isElementVisible(appState.lastFocusedElement)
+    ? appState.lastFocusedElement
+    : fallbackTarget;
+
+  appState.lastFocusedElement = null;
+  if (target instanceof HTMLElement) {
+    target.focus({ preventScroll: true });
+  }
+}
+
+function getActivePanelElement() {
+  if (appState.fallbackOpen) {
+    return refs.fallbackPanel;
+  }
+  if (appState.activeExhibit) {
+    return refs.inspectPanel;
+  }
+  if (appState.settingsOpen) {
+    return refs.settingsPanel;
+  }
+  if (appState.introOpen) {
+    return refs.introPanel;
+  }
+  return null;
+}
+
+function focusPanel(panel, preferredSelectors = []) {
+  const selectors = Array.isArray(preferredSelectors)
+    ? preferredSelectors
+    : [preferredSelectors];
+
+  for (const selector of selectors) {
+    if (!selector) {
+      continue;
+    }
+
+    const preferred = panel.querySelector(selector);
+    if (
+      preferred instanceof HTMLElement &&
+      !preferred.hasAttribute("disabled") &&
+      isElementVisible(preferred)
+    ) {
+      preferred.focus({ preventScroll: true });
+      return;
+    }
+  }
+
+  const [firstFocusable] = getFocusableElements(panel);
+  (firstFocusable ?? panel).focus({ preventScroll: true });
+}
+
+function trapActivePanelFocus(event) {
+  if (event.key !== "Tab") {
+    return false;
+  }
+
+  const panel = getActivePanelElement();
+  if (!panel) {
+    return false;
+  }
+
+  const focusableElements = getFocusableElements(panel);
+  if (!focusableElements.length) {
+    event.preventDefault();
+    panel.focus({ preventScroll: true });
+    return true;
+  }
+
+  const first = focusableElements[0];
+  const last = focusableElements[focusableElements.length - 1];
+  const activeElement = document.activeElement;
+
+  if (event.shiftKey && (activeElement === first || !panel.contains(activeElement))) {
+    event.preventDefault();
+    last.focus({ preventScroll: true });
+    return true;
+  }
+
+  if (!event.shiftKey && (activeElement === last || !panel.contains(activeElement))) {
+    event.preventDefault();
+    first.focus({ preventScroll: true });
+    return true;
+  }
+
+  return false;
+}
+
 function openFallbackMode(options = {}) {
   const { hideIntro = false, reason = null } = options;
+
+  if (!appState.fallbackOpen) {
+    rememberFocusTarget();
+  }
 
   if (hideIntro) {
     appState.introOpen = false;
@@ -230,9 +369,10 @@ function openFallbackMode(options = {}) {
   syncAppShell();
   flagInteractionRefresh();
   refs.fallbackPanel.scrollTop = 0;
-
-  const focusTarget = isWorldAvailable() ? refs.fallbackClose : refs.fallbackHeroTitle;
-  focusTarget?.focus({ preventScroll: true });
+  focusPanel(refs.fallbackPanel, [
+    isWorldAvailable() ? "#fallback-close" : "#fallback-hero-actions .action-button",
+    "#fallback-hero-actions .action-button",
+  ]);
 }
 
 function closeFallbackMode() {
@@ -244,7 +384,7 @@ function closeFallbackMode() {
   setRenderLoopActive(true);
   syncAppShell();
   flagInteractionRefresh();
-  refs.portfolioToggle.focus({ preventScroll: true });
+  restoreFocusTarget(refs.portfolioToggle);
 
   if (world) {
     updateInteractionUI();
@@ -668,6 +808,7 @@ function openExhibit(exhibit) {
     return;
   }
 
+  rememberFocusTarget();
   clearMovement();
   if (appState.pointerLocked && document.pointerLockElement === refs.canvas) {
     document.exitPointerLock();
@@ -682,18 +823,23 @@ function openExhibit(exhibit) {
     isTouchDevice,
     isIntroOpen: appState.introOpen,
   });
+  syncAppShell();
+  focusPanel(refs.inspectPanel);
   flagInteractionRefresh();
 }
 
 function closeExhibit(restoreControl) {
   appState.activeExhibit = null;
   hideInspectPanel(refs);
+  syncAppShell();
   if (world) {
     updateInteractionUI();
   }
 
   if (restoreControl && !isTouchDevice) {
     requestPointerLock();
+  } else {
+    restoreFocusTarget(refs.inspectPrompt);
   }
 
   flagInteractionRefresh();
@@ -773,10 +919,13 @@ function handleInspectPrompt() {
 }
 
 function handleToggleSettingsMenu() {
-  if (!world || appState.fallbackOpen) {
+  if (!world || appState.fallbackOpen || appState.introOpen) {
     return;
   }
 
+  if (!appState.settingsOpen) {
+    rememberFocusTarget();
+  }
   appState.settingsOpen = !appState.settingsOpen;
 
   if (appState.settingsOpen && appState.pointerLocked && document.pointerLockElement === refs.canvas) {
@@ -788,6 +937,11 @@ function handleToggleSettingsMenu() {
   }
 
   syncAppShell();
+  if (appState.settingsOpen) {
+    focusPanel(refs.settingsPanel, ["#settings-close", "#reduced-motion-toggle"]);
+  } else {
+    restoreFocusTarget(refs.settingsToggle);
+  }
   flagInteractionRefresh();
 }
 
@@ -915,6 +1069,10 @@ function handleDocumentKeyDown(event) {
     return;
   }
 
+  if (trapActivePanelFocus(event)) {
+    return;
+  }
+
   if (appState.fallbackOpen) {
     if (event.code === "Escape" && worldAvailable) {
       event.preventDefault();
@@ -932,6 +1090,7 @@ function handleDocumentKeyDown(event) {
   if (event.code === "Escape" && appState.settingsOpen) {
     appState.settingsOpen = false;
     syncAppShell();
+    restoreFocusTarget(refs.settingsToggle);
     flagInteractionRefresh();
     return;
   }

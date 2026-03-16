@@ -29,6 +29,11 @@ function renderActionList(container, actions, links, handlers) {
   });
 }
 
+function setHiddenState(element, hidden) {
+  element.classList.toggle("hidden", hidden);
+  element.setAttribute("aria-hidden", String(hidden));
+}
+
 function renderBulletList(container, bullets) {
   if (!bullets?.length) {
     return;
@@ -170,6 +175,7 @@ export function getDomRefs() {
     settingsPanel: document.getElementById("settings-panel"),
     settingsEyebrow: document.getElementById("settings-eyebrow"),
     settingsTitle: document.getElementById("settings-title"),
+    settingsClose: document.getElementById("settings-close"),
     settingsNote: document.getElementById("settings-note"),
     reducedMotionLabel: document.getElementById("reduced-motion-label"),
     reducedMotionDescription: document.getElementById("reduced-motion-description"),
@@ -239,6 +245,7 @@ export function hydrateStaticContent(refs, content, isTouchDevice, actionHandler
   );
   refs.settingsEyebrow.textContent = content.settings.eyebrow;
   refs.settingsTitle.textContent = content.settings.title;
+  refs.settingsClose.textContent = content.settings.closeLabel;
   refs.reducedMotionLabel.textContent = content.settings.reducedMotion.label;
   refs.reducedMotionDescription.textContent = content.settings.reducedMotion.description;
   refs.sensitivityLabel.textContent = content.settings.sensitivity.label;
@@ -269,6 +276,7 @@ export function hydrateStaticContent(refs, content, isTouchDevice, actionHandler
   refs.debugTriangles.setAttribute("data-label", content.debug.trianglesLabel);
   refs.crosshair.classList.toggle("hidden", isTouchDevice);
   refs.pointerToggle.classList.toggle("hidden", isTouchDevice);
+  refs.pointerToggle.setAttribute("aria-hidden", String(isTouchDevice));
   refs.mobileInspect.disabled = true;
   refs.mobileInspect.classList.add("is-disabled");
   if (refs.noScriptCopy) {
@@ -288,6 +296,7 @@ export function hydrateStaticContent(refs, content, isTouchDevice, actionHandler
     actionHandlers.selectGraphicsQuality
   );
   refs.settingsToggle.addEventListener("click", actionHandlers.toggleSettingsMenu);
+  refs.settingsClose.addEventListener("click", actionHandlers.toggleSettingsMenu);
   refs.portfolioToggle.addEventListener("click", actionHandlers.toggleFallbackMode);
   refs.pointerToggle.addEventListener("click", actionHandlers.togglePointerLock);
   refs.reducedMotionToggle.addEventListener("click", actionHandlers.toggleReducedMotion);
@@ -321,14 +330,6 @@ export function renderInspectPanel(refs, content, exhibit, onClose) {
   refs.inspectBullets.innerHTML = "";
   refs.inspectActions.innerHTML = "";
 
-  exhibit.bullets.forEach((bullet) => {
-    const item = document.createElement("li");
-    item.textContent = bullet;
-    refs.inspectBullets.appendChild(item);
-  });
-
-  renderActionList(refs.inspectActions, exhibit.actions, content.links);
-
   const closeButton = createActionElement(
     {
       type: "button",
@@ -339,21 +340,37 @@ export function renderInspectPanel(refs, content, exhibit, onClose) {
     content.links,
     { closeInspect: onClose }
   );
-  refs.inspectActions.appendChild(closeButton);
-  refs.inspectPanel.classList.remove("hidden");
+  exhibit.bullets.forEach((bullet) => {
+    const item = document.createElement("li");
+    item.textContent = bullet;
+    refs.inspectBullets.appendChild(item);
+  });
+
+  renderActionList(refs.inspectActions, exhibit.actions, content.links);
+  refs.inspectActions.prepend(closeButton);
+  setHiddenState(refs.inspectPanel, false);
 }
 
 export function hideInspectPanel(refs) {
-  refs.inspectPanel.classList.add("hidden");
+  setHiddenState(refs.inspectPanel, true);
 }
 
 export function setPromptState(refs, content, options) {
   const { visible, title, isTouchDevice, isIntroOpen } = options;
-  refs.promptTitle.textContent = title ?? content.prompt.defaultTitle;
-  refs.promptHint.textContent = isTouchDevice
+  const promptVisible = visible && !isIntroOpen;
+  const promptHint = isTouchDevice
     ? content.prompt.mobileHint
     : content.prompt.desktopHint;
-  refs.inspectPrompt.classList.toggle("hidden", !visible || isIntroOpen);
+  refs.promptTitle.textContent = title ?? content.prompt.defaultTitle;
+  refs.promptHint.textContent = promptHint;
+  refs.inspectPrompt.disabled = !promptVisible;
+  refs.inspectPrompt.setAttribute(
+    "aria-label",
+    promptVisible
+      ? `${title ?? content.prompt.defaultTitle}. ${promptHint}.`
+      : content.prompt.defaultTitle
+  );
+  setHiddenState(refs.inspectPrompt, !promptVisible);
 }
 
 export function updateZoneStatus(refs, zoneName, distanceText) {
@@ -362,10 +379,11 @@ export function updateZoneStatus(refs, zoneName, distanceText) {
 }
 
 export function updateUtilityState(refs, content, options) {
-  const { isTouchDevice, pointerLocked, settingsOpen, fallbackOpen, worldAvailable } = options;
+  const { isTouchDevice, pointerLocked, settingsOpen, fallbackOpen, worldAvailable, introOpen } = options;
+  const controlsDisabled = !worldAvailable || fallbackOpen || introOpen;
   const hint = isTouchDevice
     ? content.utility.mobileHint
-      : pointerLocked
+    : pointerLocked
       ? content.utility.pointerLockedHint
       : content.utility.pointerUnlockedHint;
   refs.portfolioToggle.textContent =
@@ -385,25 +403,29 @@ export function updateUtilityState(refs, content, options) {
   refs.settingsNote.textContent = hint;
   refs.settingsToggle.setAttribute("aria-expanded", String(settingsOpen));
   refs.settingsToggle.setAttribute("aria-pressed", String(settingsOpen));
-  refs.settingsPanel.classList.toggle("hidden", !settingsOpen);
-  refs.pointerToggle.disabled = !worldAvailable || fallbackOpen;
-  refs.settingsToggle.disabled = !worldAvailable || fallbackOpen;
+  refs.pointerToggle.disabled = controlsDisabled;
+  refs.settingsToggle.disabled = controlsDisabled;
+  refs.portfolioToggle.setAttribute("aria-disabled", String(refs.portfolioToggle.disabled));
+  refs.pointerToggle.setAttribute("aria-disabled", String(refs.pointerToggle.disabled));
+  refs.settingsToggle.setAttribute("aria-disabled", String(refs.settingsToggle.disabled));
+  setHiddenState(refs.settingsPanel, !settingsOpen);
 }
 
 export function updateFallbackState(refs, content, options) {
   const { fallbackOpen, worldAvailable, webglUnavailable } = options;
   refs.body.classList.toggle("is-fallback-open", fallbackOpen);
   refs.body.classList.toggle("is-webgl-unavailable", webglUnavailable);
-  refs.fallbackPanel.classList.toggle("hidden", !fallbackOpen);
+  refs.canvas.setAttribute("aria-hidden", String(fallbackOpen || webglUnavailable));
+  setHiddenState(refs.fallbackPanel, !fallbackOpen);
   refs.fallbackClose.textContent = content.fallbackMode.closeButtonLabel;
-  refs.fallbackClose.classList.toggle("hidden", !worldAvailable);
+  setHiddenState(refs.fallbackClose, !worldAvailable);
 
   if (webglUnavailable) {
     refs.fallbackStatus.textContent = content.fallbackMode.unavailableMessage;
-    refs.fallbackStatus.classList.remove("hidden");
+    setHiddenState(refs.fallbackStatus, false);
   } else {
     refs.fallbackStatus.textContent = "";
-    refs.fallbackStatus.classList.add("hidden");
+    setHiddenState(refs.fallbackStatus, true);
   }
 }
 

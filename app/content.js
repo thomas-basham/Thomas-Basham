@@ -12,21 +12,24 @@ export const portfolioContent = {
   controls: {
     eyebrow: "Controls",
     desktop:
-      "WASD moves. Mouse looks. Shift sprints. E inspects nearby landmarks. Esc releases the cursor. Press ` to toggle metrics.",
+      "WASD moves, Shift sprints, and E inspects nearby landmarks. Use Enable Mouse-Look to look around with the mouse, then press Esc to unlock. Press , for settings and ` for metrics.",
     mobile:
       "Use the movement sigils, drag to look, tap Run to sprint, and tap Inspect near a landmark.",
   },
   utility: {
     settingsButton: "Settings",
-    pointerLockedLabel: "Release Cursor",
-    pointerUnlockedLabel: "Capture Cursor",
-    pointerLockedHint: "Mouse-look is active. Press Esc to release the cursor.",
-    pointerUnlockedHint: "Capture the cursor for full first-person mouse-look.",
+    pointerLockedLabel: "Unlock Mouse-Look",
+    pointerUnlockedLabel: "Enable Mouse-Look",
+    pointerLockedHint:
+      "Mouse-look is active. Press Esc or choose Unlock Mouse-Look to return to the standard cursor.",
+    pointerUnlockedHint:
+      "Choose Enable Mouse-Look to look around with the mouse. Press Esc at any time to release it.",
     mobileHint: "Touch look stays active. Adjust sensitivity or motion below.",
   },
   settings: {
     eyebrow: "Journey Settings",
     title: "Experience Tuning",
+    closeLabel: "Close Settings",
     reducedMotion: {
       label: "Reduced Motion",
       description: "Reduces camera bob, sprint zoom, and ambient motion.",
@@ -94,7 +97,7 @@ export const portfolioContent = {
     ],
   },
   fallbackMode: {
-    openLabel: "Open Portfolio",
+    openLabel: "Open 2D Portfolio",
     closeLabel: "Return to 3D",
     closeButtonLabel: "Back to 3D World",
     unavailableLabel: "2D Portfolio Mode",
@@ -141,12 +144,12 @@ export const portfolioContent = {
   prompt: {
     eyebrow: "Nearby Landmark",
     defaultTitle: "Inspect",
-    desktopHint: "Press E to inspect",
+    desktopHint: "Press E or focus this prompt to inspect",
     mobileHint: "Tap to inspect this landmark",
   },
   inspect: {
     defaultZone: "Landmark",
-    closeLabel: "Continue Exploring",
+    closeLabel: "Close Exhibit",
   },
   mobileActions: {
     sprint: "Run",

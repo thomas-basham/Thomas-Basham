@@ -35,6 +35,16 @@ button {
   font: inherit;
 }
 
+:focus-visible {
+  outline: 3px solid rgba(244, 220, 169, 0.92);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(244, 220, 169, 0.14);
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 .app-shell {
   position: fixed;
   inset: 0;
@@ -131,7 +141,7 @@ body.is-webgl-unavailable #world {
 
 .quick-cta p {
   margin: 0.45rem 0 0;
-  color: rgba(247, 241, 227, 0.8);
+  color: rgba(247, 241, 227, 0.9);
   font-size: 0.9rem;
   line-height: 1.45;
 }
@@ -161,7 +171,7 @@ body.is-webgl-unavailable #world {
 
 #zone-distance {
   margin-top: 0.2rem;
-  color: rgba(247, 241, 227, 0.8);
+  color: rgba(247, 241, 227, 0.88);
   font-size: 0.95rem;
 }
 
@@ -184,8 +194,18 @@ body.is-webgl-unavailable #world {
 
 .panel p {
   margin: 0.9rem 0 0;
-  color: rgba(247, 241, 227, 0.86);
+  color: rgba(247, 241, 227, 0.92);
   line-height: 1.6;
+}
+
+.panel__header {
+  display: flex;
+  gap: 1rem;
+}
+
+.panel__header--spread {
+  align-items: flex-start;
+  justify-content: space-between;
 }
 
 .panel--intro {
@@ -444,21 +464,24 @@ body.is-webgl-unavailable #world {
   background: rgba(8, 20, 24, 0.72);
   color: var(--ink);
   cursor: pointer;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
 .utility-button {
-  min-height: 2.6rem;
+  min-height: 2.9rem;
   padding: 0.7rem 0.95rem;
   border-radius: 999px;
 }
 
+.utility-button--compact {
+  min-height: 2.55rem;
+  padding-inline: 0.85rem;
+}
+
 .utility-button:hover,
-.utility-button:focus-visible,
 .toggle-chip:hover,
-.toggle-chip:focus-visible,
-.setting-choice:hover,
-.setting-choice:focus-visible {
+.setting-choice:hover {
   border-color: rgba(244, 220, 169, 0.58);
   background: rgba(255, 255, 255, 0.1);
 }
@@ -467,7 +490,7 @@ body.is-webgl-unavailable #world {
 .settings-note {
   margin: 0;
   max-width: 24rem;
-  color: rgba(247, 241, 227, 0.74);
+  color: rgba(247, 241, 227, 0.9);
   font-size: 0.88rem;
   line-height: 1.45;
   text-align: right;
@@ -512,14 +535,14 @@ body.is-webgl-unavailable #world {
 
 .setting-copy p {
   margin: 0.45rem 0 0;
-  color: rgba(247, 241, 227, 0.72);
+  color: rgba(247, 241, 227, 0.86);
   font-size: 0.9rem;
   line-height: 1.5;
 }
 
 .toggle-chip {
   min-width: 4.5rem;
-  min-height: 2.35rem;
+  min-height: 2.6rem;
   padding: 0.55rem 0.85rem;
   border-radius: 999px;
   font-weight: 700;
@@ -533,7 +556,7 @@ body.is-webgl-unavailable #world {
 }
 
 .setting-choice {
-  min-height: 2.35rem;
+  min-height: 2.6rem;
   padding: 0.55rem 0.8rem;
   border-radius: 999px;
   font-size: 0.92rem;
@@ -564,11 +587,11 @@ body.is-webgl-unavailable #world {
     transform 160ms ease,
     background-color 160ms ease,
     border-color 160ms ease;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-.action-button:hover,
-.action-button:focus-visible {
+.action-button:hover {
   transform: translateY(-1px);
   border-color: rgba(244, 220, 169, 0.56);
   background: rgba(255, 255, 255, 0.1);
@@ -617,7 +640,7 @@ body.is-webgl-unavailable #world {
 
 .prompt__hint {
   margin-top: 0.25rem;
-  color: rgba(247, 241, 227, 0.76);
+  color: rgba(247, 241, 227, 0.9);
   font-size: 0.9rem;
 }
 
@@ -748,6 +771,11 @@ body.is-webgl-unavailable #world {
   -webkit-user-select: none;
 }
 
+.control-button:hover {
+  border-color: rgba(244, 220, 169, 0.52);
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .control-button--wide {
   min-height: 3.5rem;
   font-weight: 700;
@@ -787,6 +815,26 @@ body.is-fallback-open .top-bar__status {
   opacity: 0.35;
 }
 
+body.is-intro-open .quick-cta,
+body.is-intro-open .legend,
+body.is-intro-open .debug-panel,
+body.is-intro-open .prompt {
+  display: none !important;
+}
+
+body.is-intro-open .top-bar__status,
+body.is-settings-open .top-bar__status,
+body.is-inspect-open .top-bar__status {
+  opacity: 0.4;
+}
+
+body.is-settings-open .quick-cta,
+body.is-settings-open .legend,
+body.is-inspect-open .quick-cta,
+body.is-inspect-open .legend {
+  opacity: 0.28;
+}
+
 .noscript {
   position: fixed;
   inset: 1rem;
@@ -806,6 +854,13 @@ body.is-fallback-open .top-bar__status {
 @media (pointer: coarse) {
   .mobile-controls {
     display: flex;
+  }
+
+  .action-button,
+  .utility-button,
+  .toggle-chip,
+  .setting-choice {
+    min-height: 3rem;
   }
 
   .crosshair {
@@ -961,17 +1016,37 @@ body.is-fallback-open .top-bar__status {
 }
 
 body.is-reduced-motion .fallback-panel,
-body.is-reduced-motion .fallback-panel * {
+body.is-reduced-motion .fallback-panel *,
+body.is-reduced-motion .action-button,
+body.is-reduced-motion .utility-button,
+body.is-reduced-motion .toggle-chip,
+body.is-reduced-motion .setting-choice,
+body.is-reduced-motion .prompt,
+body.is-reduced-motion .control-button {
   animation: none !important;
   transition: none !important;
   scroll-behavior: auto !important;
 }
 
+body.is-reduced-motion .action-button:hover {
+  transform: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fallback-panel,
-  .fallback-panel * {
+  .fallback-panel *,
+  .action-button,
+  .utility-button,
+  .toggle-chip,
+  .setting-choice,
+  .prompt,
+  .control-button {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+
+  .action-button:hover {
+    transform: none;
   }
 }

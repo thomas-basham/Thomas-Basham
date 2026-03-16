@@ -18,9 +18,13 @@
   </head>
   <body>
     <div class="app-shell">
-      <canvas id="world" aria-label="Three-dimensional portfolio world"></canvas>
+      <canvas
+        id="world"
+        tabindex="-1"
+        aria-label="Three-dimensional portfolio world"
+      ></canvas>
 
-      <div class="hud">
+      <main class="hud" aria-label="Portfolio interface">
         <header class="top-bar">
           <div class="top-bar__brand">
             <span class="eyebrow" id="brand-eyebrow"></span>
@@ -41,7 +45,12 @@
                 aria-expanded="false"
                 aria-controls="fallback-panel"
               ></button>
-              <button class="utility-button" id="pointer-toggle" type="button"></button>
+              <button
+                class="utility-button"
+                id="pointer-toggle"
+                type="button"
+                aria-describedby="pointer-hint"
+              ></button>
               <button
                 class="utility-button"
                 id="settings-toggle"
@@ -50,7 +59,7 @@
                 aria-controls="settings-panel"
               ></button>
             </div>
-            <p class="utility-hint" id="pointer-hint"></p>
+            <p class="utility-hint" id="pointer-hint" role="status" aria-live="polite"></p>
 
             <aside class="quick-cta" id="fallback-cta" aria-labelledby="fallback-cta-title">
               <span class="eyebrow" id="fallback-cta-eyebrow"></span>
@@ -64,10 +73,19 @@
         <section
           class="panel panel--settings hidden"
           id="settings-panel"
+          role="dialog"
+          aria-modal="true"
           aria-labelledby="settings-title"
+          aria-describedby="settings-note"
+          tabindex="-1"
         >
-          <span class="eyebrow" id="settings-eyebrow"></span>
-          <h2 id="settings-title"></h2>
+          <div class="panel__header panel__header--spread">
+            <div>
+              <span class="eyebrow" id="settings-eyebrow"></span>
+              <h2 id="settings-title"></h2>
+            </div>
+            <button class="utility-button utility-button--compact" id="settings-close" type="button"></button>
+          </div>
 
           <div class="settings-list">
             <div class="setting-row">
@@ -82,21 +100,39 @@
               <div class="setting-copy">
                 <h3 id="sensitivity-label"></h3>
               </div>
-              <div class="setting-options" id="sensitivity-options" role="group"></div>
+              <div
+                class="setting-options"
+                id="sensitivity-options"
+                role="group"
+                aria-labelledby="sensitivity-label"
+              ></div>
             </div>
 
             <div class="setting-row">
               <div class="setting-copy">
                 <h3 id="graphics-label"></h3>
               </div>
-              <div class="setting-options" id="graphics-options" role="group"></div>
+              <div
+                class="setting-options"
+                id="graphics-options"
+                role="group"
+                aria-labelledby="graphics-label"
+              ></div>
             </div>
           </div>
 
           <p class="settings-note" id="settings-note"></p>
         </section>
 
-        <section class="panel panel--intro" id="intro-panel">
+        <section
+          class="panel panel--intro"
+          id="intro-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="intro-title"
+          aria-describedby="intro-body"
+          tabindex="-1"
+        >
           <span class="eyebrow" id="intro-eyebrow"></span>
           <h2 id="intro-title"></h2>
           <p id="intro-body"></p>
@@ -106,7 +142,15 @@
           <div class="panel__actions" id="intro-actions"></div>
         </section>
 
-        <section class="fallback-panel hidden" id="fallback-panel" aria-labelledby="fallback-hero-title">
+        <section
+          class="fallback-panel hidden"
+          id="fallback-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="fallback-hero-title"
+          aria-describedby="fallback-hero-body fallback-status"
+          tabindex="-1"
+        >
           <div class="fallback-panel__inner">
             <header class="fallback-hero">
               <div class="fallback-hero__copy">
@@ -128,7 +172,15 @@
           </div>
         </section>
 
-        <section class="panel panel--inspect hidden" id="inspect-panel" aria-live="polite">
+        <section
+          class="panel panel--inspect hidden"
+          id="inspect-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="inspect-title"
+          aria-describedby="inspect-body"
+          tabindex="-1"
+        >
           <span class="eyebrow" id="inspect-zone"></span>
           <h2 id="inspect-title"></h2>
           <p class="panel__kicker" id="inspect-kicker"></p>
@@ -137,7 +189,15 @@
           <div class="panel__actions" id="inspect-actions"></div>
         </section>
 
-        <button class="prompt hidden" id="inspect-prompt" type="button">
+        <button
+          class="prompt hidden"
+          id="inspect-prompt"
+          type="button"
+          aria-live="polite"
+          aria-atomic="true"
+          aria-haspopup="dialog"
+          aria-controls="inspect-panel"
+        >
           <span class="prompt__eyebrow" id="prompt-eyebrow"></span>
           <span class="prompt__title" id="prompt-title"></span>
           <span class="prompt__hint" id="prompt-hint"></span>
@@ -159,18 +219,18 @@
         <div class="crosshair" id="crosshair" aria-hidden="true"></div>
 
         <section class="mobile-controls" id="mobile-controls" aria-label="Mobile controls">
-          <div class="control-pad">
-            <button class="control-button" data-control="forward" type="button">▲</button>
-            <button class="control-button" data-control="left" type="button">◀</button>
-            <button class="control-button" data-control="backward" type="button">▼</button>
-            <button class="control-button" data-control="right" type="button">▶</button>
+          <div class="control-pad" role="group" aria-label="Movement controls">
+            <button class="control-button" data-control="forward" type="button" aria-label="Move forward">▲</button>
+            <button class="control-button" data-control="left" type="button" aria-label="Move left">◀</button>
+            <button class="control-button" data-control="backward" type="button" aria-label="Move backward">▼</button>
+            <button class="control-button" data-control="right" type="button" aria-label="Move right">▶</button>
           </div>
 
-          <div class="control-pad control-pad--look">
-            <button class="control-button" data-control="lookUp" type="button">▲</button>
-            <button class="control-button" data-control="turnLeft" type="button">◀</button>
-            <button class="control-button" data-control="lookDown" type="button">▼</button>
-            <button class="control-button" data-control="turnRight" type="button">▶</button>
+          <div class="control-pad control-pad--look" role="group" aria-label="Look controls">
+            <button class="control-button" data-control="lookUp" type="button" aria-label="Look up">▲</button>
+            <button class="control-button" data-control="turnLeft" type="button" aria-label="Turn left">◀</button>
+            <button class="control-button" data-control="lookDown" type="button" aria-label="Look down">▼</button>
+            <button class="control-button" data-control="turnRight" type="button" aria-label="Turn right">▶</button>
           </div>
 
           <div class="mobile-actions">
@@ -182,7 +242,7 @@
             </button>
           </div>
         </section>
-      </div>
+      </main>
     </div>
 
     <noscript>

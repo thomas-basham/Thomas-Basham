@@ -108,6 +108,19 @@ export function createProjectTexture(exhibit, options) {
       ctx.arc(width / 2, 280, 180, 0, Math.PI * 2);
       ctx.fill();
 
+      if (exhibit.featuredTag) {
+        ctx.fillStyle = "rgba(244, 220, 169, 0.12)";
+        roundRect(ctx, width / 2 - 190, 92, 380, 70, 35);
+        ctx.fill();
+        ctx.strokeStyle = colorToRgba(exhibit.accent, 0.8);
+        ctx.lineWidth = 3;
+        roundRect(ctx, width / 2 - 190, 92, 380, 70, 35);
+        ctx.stroke();
+        ctx.fillStyle = "#f4dca9";
+        ctx.font = "700 28px Manrope, sans-serif";
+        ctx.fillText(exhibit.featuredTag.toUpperCase(), width / 2, 136);
+      }
+
       ctx.fillStyle = exhibit.accent;
       ctx.font = "700 170px Cinzel, Georgia, serif";
       ctx.textAlign = "center";

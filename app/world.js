@@ -905,7 +905,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
   // Exhibit builders
   function createPortraitHall(exhibit) {
     const group = createPlatform(exhibit.position, 4.1, 1.25);
-    addLabelSprite(group, exhibit.zone, exhibit.title, exhibit.accent, 6.3);
+    addLabelSprite(group, exhibit.labelEyebrow ?? exhibit.zone, exhibit.title, exhibit.accent, 6.3);
 
     const frame = new THREE.Mesh(getGeometry("portrait-frame", () => new THREE.BoxGeometry(3.4, 4.4, 0.24)), materials.brass);
     frame.position.set(0, 4.2, 0);
@@ -947,43 +947,83 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
   }
 
   function createProjectShrine(exhibit) {
-    const group = createPlatform(exhibit.position, 3.45, 1.12);
-    addLabelSprite(group, exhibit.zone, exhibit.title, exhibit.accent, 5.8);
+    const emphasisScale =
+      exhibit.emphasisScale ??
+      (exhibit.featuredRank === 1 ? 1.16 : exhibit.featuredTag ? 1.08 : 1);
+    const platformRadius = 3.45 * emphasisScale;
+    const platformHeight = 1.12 * emphasisScale;
+    const group = createPlatform(exhibit.position, platformRadius, platformHeight);
+    addLabelSprite(
+      group,
+      exhibit.labelEyebrow ?? exhibit.zone,
+      exhibit.title,
+      exhibit.accent,
+      5.8 * emphasisScale
+    );
 
     const card = createProjectCard(exhibit);
-    card.position.set(0, 3.45, 0);
+    card.position.set(0, 3.45 * emphasisScale, 0);
+    card.scale.setScalar(emphasisScale);
     group.add(card);
 
     const orb = new THREE.Mesh(
       getGeometry("project-orb", () => new THREE.IcosahedronGeometry(0.44, 0)),
       createGlowMaterial(exhibit.accent, 1.4)
     );
-    orb.position.set(0, 5.1, 0);
+    orb.position.set(0, 5.1 * emphasisScale, 0);
+    orb.scale.setScalar(emphasisScale);
     group.add(orb);
 
     const ring = new THREE.Mesh(
       getGeometry("project-ring", () => new THREE.TorusGeometry(2.2, 0.08, 12, 64)),
       createGlowMaterial(exhibit.accent, 1.05)
     );
-    ring.position.set(0, 3.5, 0);
+    ring.position.set(0, 3.5 * emphasisScale, 0);
     ring.rotation.x = Math.PI / 2;
+    ring.scale.setScalar(emphasisScale);
     group.add(ring);
+
+    if (exhibit.featuredTag) {
+      const halo = new THREE.Mesh(
+        getGeometry("featured-project-halo", () => new THREE.TorusGeometry(2.85, 0.06, 12, 72)),
+        createGlowMaterial(exhibit.accent, 1.12)
+      );
+      halo.position.set(0, 4.55 * emphasisScale, 0);
+      halo.rotation.x = Math.PI / 2;
+      halo.scale.setScalar(emphasisScale);
+      group.add(halo);
+      addFloater(halo, 0.08, 1.35, emphasisScale, 0.22);
+    }
 
     addFloater(orb, 0.18, 1.8, Math.random() * Math.PI * 2, 0.95);
     addFloater(ring, 0, 0, 0, 0.38);
-    addCornerPillars(group, 2.2, 4.4, exhibit.accent);
-    addLandmarkLight(group, exhibit.accent, 1.35, 12, 4.3);
+    addCornerPillars(group, 2.2 * emphasisScale, 4.4 * emphasisScale, exhibit.accent);
+    addLandmarkLight(
+      group,
+      exhibit.accent,
+      1.35 * emphasisScale,
+      12 * emphasisScale,
+      4.3 * emphasisScale
+    );
   }
 
   function createSkillGrove(exhibit) {
-    const group = createPlatform(exhibit.position, 3.8, 1.18);
-    addLabelSprite(group, exhibit.zone, exhibit.title, exhibit.accent, 6.1);
+    const emphasisScale = exhibit.emphasisScale ?? 1;
+    const group = createPlatform(exhibit.position, 3.8 * emphasisScale, 1.18 * emphasisScale);
+    addLabelSprite(
+      group,
+      exhibit.labelEyebrow ?? exhibit.zone,
+      exhibit.title,
+      exhibit.accent,
+      6.1 * emphasisScale
+    );
 
     const trunk = new THREE.Mesh(
       getGeometry("grove-trunk", () => new THREE.CylinderGeometry(0.42, 0.7, 3.6, 10)),
       materials.bark
     );
-    trunk.position.set(0, 2.3, -0.4);
+    trunk.position.set(0, 2.3 * emphasisScale, -0.4);
+    trunk.scale.setScalar(emphasisScale);
     trunk.castShadow = !isTouchDevice;
     group.add(trunk);
 
@@ -991,8 +1031,8 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       getGeometry("grove-canopy", () => new THREE.SphereGeometry(1.9, 18, 18)),
       materials.foliage
     );
-    canopy.position.set(0, 4.35, -0.55);
-    canopy.scale.set(1.2, 0.84, 1.1);
+    canopy.position.set(0, 4.35 * emphasisScale, -0.55);
+    canopy.scale.set(1.2 * emphasisScale, 0.84 * emphasisScale, 1.1 * emphasisScale);
     canopy.castShadow = !isTouchDevice;
     group.add(canopy);
 
@@ -1000,32 +1040,41 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       getGeometry("grove-crystal", () => new THREE.OctahedronGeometry(0.85, 0)),
       createGlowMaterial(exhibit.accent, 1.55)
     );
-    crystal.position.set(0, 3.2, 0.9);
+    crystal.position.set(0, 3.2 * emphasisScale, 0.9);
+    crystal.scale.setScalar(emphasisScale);
     group.add(crystal);
 
     const orbit = new THREE.Group();
-    orbit.position.y = 3.2;
+    orbit.position.y = 3.2 * emphasisScale;
     group.add(orbit);
     addFloater(orbit, 0, 0, 0, 0.55);
 
-    ["Code", "Cloud", "AI"].forEach((label, index) => {
-      const angle = (index / 3) * Math.PI * 2;
+    const sigils = exhibit.sigils ?? ["Code", "Cloud", "AI"];
+    sigils.forEach((label, index) => {
+      const angle = (index / sigils.length) * Math.PI * 2;
       const sigil = createSmallSigil(label, exhibit.accent);
       sigil.position.set(
-        Math.cos(angle) * 1.95,
-        0.2 + index * 0.12,
-        Math.sin(angle) * 1.95
+        Math.cos(angle) * 1.95 * emphasisScale,
+        0.2 * emphasisScale + index * 0.12,
+        Math.sin(angle) * 1.95 * emphasisScale
       );
+      sigil.scale.setScalar(Math.max(0.9, emphasisScale));
       orbit.add(sigil);
       addFloater(sigil, 0.14, 1.3 + index * 0.35, index * 1.7, 0.9);
     });
 
-    addLandmarkLight(group, exhibit.accent, 1.3, 12, 4.2);
+    addLandmarkLight(
+      group,
+      exhibit.accent,
+      1.3 * emphasisScale,
+      12 * emphasisScale,
+      4.2 * emphasisScale
+    );
   }
 
   function createCloudSanctum(exhibit) {
     const group = createPlatform(exhibit.position, 4.4, 1.2);
-    addLabelSprite(group, exhibit.zone, exhibit.title, exhibit.accent, 6.2);
+    addLabelSprite(group, exhibit.labelEyebrow ?? exhibit.zone, exhibit.title, exhibit.accent, 6.2);
 
     const arch = new THREE.Mesh(
       getGeometry("sanctum-arch", () => new THREE.TorusGeometry(2.5, 0.1, 18, 72)),
@@ -1051,7 +1100,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
 
   function createPortalNexus(exhibit) {
     const group = createPlatform(exhibit.position, 4.7, 1.25);
-    addLabelSprite(group, exhibit.zone, exhibit.title, exhibit.accent, 6.5);
+    addLabelSprite(group, exhibit.labelEyebrow ?? exhibit.zone, exhibit.title, exhibit.accent, 6.5);
 
     const ring = new THREE.Mesh(
       getGeometry("portal-ring", () => new THREE.TorusGeometry(2.6, 0.16, 20, 90)),

@@ -29,6 +29,91 @@ function renderActionList(container, actions, links, handlers) {
   });
 }
 
+function renderBulletList(container, bullets) {
+  if (!bullets?.length) {
+    return;
+  }
+
+  const list = document.createElement("ul");
+  list.className = "fallback-card__bullets";
+  bullets.forEach((bullet) => {
+    const item = document.createElement("li");
+    item.textContent = bullet;
+    list.appendChild(item);
+  });
+  container.appendChild(list);
+}
+
+function createFallbackCard(card, content, handlers = {}) {
+  const article = document.createElement("article");
+  article.className = "fallback-card";
+  if (card.meta) {
+    article.classList.add("fallback-card--featured");
+  }
+  if (card.accent) {
+    article.style.setProperty("--fallback-accent", card.accent);
+  }
+
+  if (card.meta) {
+    const meta = document.createElement("span");
+    meta.className = "fallback-card__meta";
+    meta.textContent = card.meta;
+    article.appendChild(meta);
+  }
+
+  const eyebrow = document.createElement("span");
+  eyebrow.className = "eyebrow";
+  eyebrow.textContent = card.eyebrow;
+
+  const title = document.createElement("h3");
+  title.textContent = card.title;
+
+  const kicker = document.createElement("p");
+  kicker.className = "fallback-card__kicker";
+  kicker.textContent = card.kicker;
+
+  const body = document.createElement("p");
+  body.className = "fallback-card__body";
+  body.textContent = card.body;
+
+  article.append(eyebrow, title, kicker, body);
+  renderBulletList(article, card.bullets);
+
+  if (card.actions?.length) {
+    const actions = document.createElement("div");
+    actions.className = "fallback-card__actions";
+    renderActionList(actions, card.actions, content.links, handlers);
+    article.appendChild(actions);
+  }
+
+  return article;
+}
+
+function createFallbackSection(section, content, handlers = {}) {
+  const element = document.createElement("section");
+  element.className = `fallback-section fallback-section--${section.layout}`;
+
+  const header = document.createElement("header");
+  header.className = "fallback-section__header";
+
+  const eyebrow = document.createElement("span");
+  eyebrow.className = "eyebrow";
+  eyebrow.textContent = section.eyebrow;
+
+  const title = document.createElement("h2");
+  title.textContent = section.title;
+  header.append(eyebrow, title);
+
+  const grid = document.createElement("div");
+  grid.className = `fallback-section__grid fallback-section__grid--${section.layout}`;
+  section.cards.forEach((card) => {
+    grid.appendChild(createFallbackCard(card, content, handlers));
+  });
+
+  element.append(header, grid);
+  return element;
+}
+
 function renderIntroCards(container, cards) {
   container.innerHTML = "";
   cards.forEach((card) => {
@@ -74,6 +159,7 @@ export function getDomRefs() {
     zoneName: document.getElementById("zone-name"),
     zoneDistance: document.getElementById("zone-distance"),
     pointerToggle: document.getElementById("pointer-toggle"),
+    portfolioToggle: document.getElementById("portfolio-toggle"),
     pointerHint: document.getElementById("pointer-hint"),
     fallbackCta: document.getElementById("fallback-cta"),
     fallbackCtaEyebrow: document.getElementById("fallback-cta-eyebrow"),
@@ -98,6 +184,15 @@ export function getDomRefs() {
     introBody: document.getElementById("intro-body"),
     introGrid: document.getElementById("intro-grid"),
     introActions: document.getElementById("intro-actions"),
+    fallbackPanel: document.getElementById("fallback-panel"),
+    fallbackStatus: document.getElementById("fallback-status"),
+    fallbackClose: document.getElementById("fallback-close"),
+    fallbackHeroEyebrow: document.getElementById("fallback-hero-eyebrow"),
+    fallbackHeroTitle: document.getElementById("fallback-hero-title"),
+    fallbackHeroKicker: document.getElementById("fallback-hero-kicker"),
+    fallbackHeroBody: document.getElementById("fallback-hero-body"),
+    fallbackHeroActions: document.getElementById("fallback-hero-actions"),
+    fallbackSections: document.getElementById("fallback-sections"),
     inspectPanel: document.getElementById("inspect-panel"),
     inspectZone: document.getElementById("inspect-zone"),
     inspectTitle: document.getElementById("inspect-title"),
@@ -132,6 +227,7 @@ export function hydrateStaticContent(refs, content, isTouchDevice, actionHandler
   refs.zoneName.textContent = content.status.defaultZoneName;
   refs.zoneDistance.textContent = content.status.defaultZoneDistance;
   refs.settingsToggle.textContent = content.utility.settingsButton;
+  refs.portfolioToggle.textContent = content.fallbackMode.openLabel;
   refs.fallbackCtaEyebrow.textContent = content.fallbackCta.eyebrow;
   refs.fallbackCtaTitle.textContent = content.fallbackCta.title;
   refs.fallbackCtaBody.textContent = content.fallbackCta.body;
@@ -192,9 +288,29 @@ export function hydrateStaticContent(refs, content, isTouchDevice, actionHandler
     actionHandlers.selectGraphicsQuality
   );
   refs.settingsToggle.addEventListener("click", actionHandlers.toggleSettingsMenu);
+  refs.portfolioToggle.addEventListener("click", actionHandlers.toggleFallbackMode);
   refs.pointerToggle.addEventListener("click", actionHandlers.togglePointerLock);
   refs.reducedMotionToggle.addEventListener("click", actionHandlers.toggleReducedMotion);
   refs.mobileInspect.addEventListener("click", actionHandlers.mobileInspect);
+}
+
+export function renderFallbackPortfolio(refs, content, fallbackContent, handlers = {}) {
+  refs.fallbackHeroEyebrow.textContent = fallbackContent.hero.eyebrow;
+  refs.fallbackHeroTitle.textContent = fallbackContent.hero.title;
+  refs.fallbackHeroKicker.textContent = fallbackContent.hero.kicker;
+  refs.fallbackHeroBody.textContent = fallbackContent.hero.body;
+  refs.fallbackHeroTitle.tabIndex = -1;
+  renderActionList(
+    refs.fallbackHeroActions,
+    fallbackContent.hero.actions,
+    content.links,
+    handlers
+  );
+
+  refs.fallbackSections.innerHTML = "";
+  fallbackContent.sections.forEach((section) => {
+    refs.fallbackSections.appendChild(createFallbackSection(section, content, handlers));
+  });
 }
 
 export function renderInspectPanel(refs, content, exhibit, onClose) {
@@ -246,12 +362,21 @@ export function updateZoneStatus(refs, zoneName, distanceText) {
 }
 
 export function updateUtilityState(refs, content, options) {
-  const { isTouchDevice, pointerLocked, settingsOpen } = options;
+  const { isTouchDevice, pointerLocked, settingsOpen, fallbackOpen, worldAvailable } = options;
   const hint = isTouchDevice
     ? content.utility.mobileHint
-    : pointerLocked
+      : pointerLocked
       ? content.utility.pointerLockedHint
       : content.utility.pointerUnlockedHint;
+  refs.portfolioToggle.textContent =
+    fallbackOpen && worldAvailable
+      ? content.fallbackMode.closeLabel
+      : worldAvailable
+        ? content.fallbackMode.openLabel
+        : content.fallbackMode.unavailableLabel;
+  refs.portfolioToggle.setAttribute("aria-expanded", String(fallbackOpen));
+  refs.portfolioToggle.setAttribute("aria-pressed", String(fallbackOpen));
+  refs.portfolioToggle.disabled = !worldAvailable && fallbackOpen;
   refs.pointerToggle.textContent = pointerLocked
     ? content.utility.pointerLockedLabel
     : content.utility.pointerUnlockedLabel;
@@ -261,6 +386,25 @@ export function updateUtilityState(refs, content, options) {
   refs.settingsToggle.setAttribute("aria-expanded", String(settingsOpen));
   refs.settingsToggle.setAttribute("aria-pressed", String(settingsOpen));
   refs.settingsPanel.classList.toggle("hidden", !settingsOpen);
+  refs.pointerToggle.disabled = !worldAvailable || fallbackOpen;
+  refs.settingsToggle.disabled = !worldAvailable || fallbackOpen;
+}
+
+export function updateFallbackState(refs, content, options) {
+  const { fallbackOpen, worldAvailable, webglUnavailable } = options;
+  refs.body.classList.toggle("is-fallback-open", fallbackOpen);
+  refs.body.classList.toggle("is-webgl-unavailable", webglUnavailable);
+  refs.fallbackPanel.classList.toggle("hidden", !fallbackOpen);
+  refs.fallbackClose.textContent = content.fallbackMode.closeButtonLabel;
+  refs.fallbackClose.classList.toggle("hidden", !worldAvailable);
+
+  if (webglUnavailable) {
+    refs.fallbackStatus.textContent = content.fallbackMode.unavailableMessage;
+    refs.fallbackStatus.classList.remove("hidden");
+  } else {
+    refs.fallbackStatus.textContent = "";
+    refs.fallbackStatus.classList.add("hidden");
+  }
 }
 
 export function updateSettingsControls(refs, content, settings) {

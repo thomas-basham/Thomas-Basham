@@ -34,6 +34,13 @@
 
           <div class="top-bar__utilities">
             <div class="utility-actions">
+              <button
+                class="utility-button"
+                id="portfolio-toggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="fallback-panel"
+              ></button>
               <button class="utility-button" id="pointer-toggle" type="button"></button>
               <button
                 class="utility-button"
@@ -97,6 +104,28 @@
           <div class="intro-grid" id="intro-grid"></div>
 
           <div class="panel__actions" id="intro-actions"></div>
+        </section>
+
+        <section class="fallback-panel hidden" id="fallback-panel" aria-labelledby="fallback-hero-title">
+          <div class="fallback-panel__inner">
+            <header class="fallback-hero">
+              <div class="fallback-hero__copy">
+                <span class="eyebrow" id="fallback-hero-eyebrow"></span>
+                <h2 id="fallback-hero-title"></h2>
+                <p class="fallback-hero__kicker" id="fallback-hero-kicker"></p>
+                <p id="fallback-hero-body"></p>
+              </div>
+
+              <div class="fallback-hero__actions">
+                <div class="panel__actions" id="fallback-hero-actions"></div>
+                <button class="utility-button fallback-close" id="fallback-close" type="button"></button>
+              </div>
+            </header>
+
+            <p class="fallback-status hidden" id="fallback-status" role="status"></p>
+
+            <div class="fallback-sections" id="fallback-sections"></div>
+          </div>
         </section>
 
         <section class="panel panel--inspect hidden" id="inspect-panel" aria-live="polite">

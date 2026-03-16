@@ -77,6 +77,11 @@ export const portfolioContent = {
         variant: "primary",
       },
       {
+        type: "button",
+        id: "openFallbackMode",
+        label: "Open 2D Portfolio",
+      },
+      {
         type: "link",
         hrefKey: "resume",
         label: "Open Resume",
@@ -87,6 +92,23 @@ export const portfolioContent = {
         label: "Email Thomas",
       },
     ],
+  },
+  fallbackMode: {
+    openLabel: "Open Portfolio",
+    closeLabel: "Return to 3D",
+    closeButtonLabel: "Back to 3D World",
+    unavailableLabel: "2D Portfolio Mode",
+    unavailableMessage:
+      "WebGL is unavailable in this browser or on this device, so the accessible portfolio view is shown automatically.",
+    heroEyebrow: "Professional Overview",
+    capabilitiesEyebrow: "Skills and Current Focus",
+    capabilitiesTitle: "How Thomas Builds",
+    certificationsEyebrow: "Credentials",
+    certificationsTitle: "Certifications and Cloud Focus",
+    featuredEyebrow: "Featured Projects",
+    featuredTitle: "Selected Work",
+    contactEyebrow: "Direct Contact",
+    contactTitle: "Resume, Profiles, and Contact",
   },
   fallbackCta: {
     eyebrow: "Prefer the Fast Path?",
@@ -416,3 +438,85 @@ export const portfolioContent = {
     },
   ],
 };
+
+export function buildFallbackPortfolioContent(content = portfolioContent) {
+  const exhibitsById = Object.fromEntries(
+    content.exhibits.map((exhibit) => [exhibit.id, exhibit])
+  );
+  const about = exhibitsById.about;
+  const skills = exhibitsById.skills;
+  const focus = exhibitsById.focus;
+  const certifications = exhibitsById.certifications;
+  const contact = exhibitsById.contact;
+  const featuredProjects = content.exhibits
+    .filter((exhibit) => exhibit.type === "project")
+    .sort((left, right) => {
+      const rankDelta = (left.featuredRank ?? Number.MAX_SAFE_INTEGER) - (right.featuredRank ?? Number.MAX_SAFE_INTEGER);
+      return rankDelta || left.title.localeCompare(right.title);
+    });
+
+  return {
+    hero: {
+      eyebrow: content.fallbackMode.heroEyebrow,
+      title: content.brand.title,
+      kicker: about.kicker,
+      body: about.body,
+      actions: content.fallbackCta.actions,
+    },
+    sections: [
+      {
+        id: "about",
+        layout: "feature",
+        eyebrow: about.zone,
+        title: "About Thomas",
+        cards: [mapFallbackCard(about)],
+      },
+      {
+        id: "capabilities",
+        layout: "split",
+        eyebrow: content.fallbackMode.capabilitiesEyebrow,
+        title: content.fallbackMode.capabilitiesTitle,
+        cards: [mapFallbackCard(skills), mapFallbackCard(focus)],
+      },
+      {
+        id: "certifications",
+        layout: "feature",
+        eyebrow: content.fallbackMode.certificationsEyebrow,
+        title: content.fallbackMode.certificationsTitle,
+        cards: [mapFallbackCard(certifications)],
+      },
+      {
+        id: "projects",
+        layout: "projects",
+        eyebrow: content.fallbackMode.featuredEyebrow,
+        title: content.fallbackMode.featuredTitle,
+        cards: featuredProjects.map((project) =>
+          mapFallbackCard(project, {
+            meta: project.featuredTag,
+          })
+        ),
+      },
+      {
+        id: "contact",
+        layout: "feature",
+        eyebrow: content.fallbackMode.contactEyebrow,
+        title: content.fallbackMode.contactTitle,
+        cards: [mapFallbackCard(contact)],
+      },
+    ],
+  };
+}
+
+function mapFallbackCard(exhibit, overrides = {}) {
+  return {
+    id: exhibit.id,
+    eyebrow: exhibit.labelEyebrow ?? exhibit.zone,
+    title: exhibit.title,
+    kicker: exhibit.kicker,
+    body: exhibit.body,
+    bullets: exhibit.bullets,
+    actions: exhibit.actions,
+    accent: exhibit.accent,
+    meta: exhibit.featuredTag ?? overrides.meta ?? null,
+  };
+}

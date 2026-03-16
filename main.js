@@ -1,11 +1,16 @@
-import { portfolioContent } from "./app/content.js";
+import {
+  buildFallbackPortfolioContent,
+  portfolioContent,
+} from "./app/content.js";
 import {
   getDomRefs,
   hideInspectPanel,
   hydrateStaticContent,
+  renderFallbackPortfolio,
   renderInspectPanel,
   setPromptState,
   updateDebugMetrics,
+  updateFallbackState,
   updateSettingsControls,
   updateUtilityState,
   updateZoneStatus,
@@ -23,12 +28,7 @@ const isTouchDevice =
   window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const experienceSettings = loadExperienceSettings(isTouchDevice, prefersReducedMotion);
-const world = createWorld({
-  canvas: refs.canvas,
-  isTouchDevice,
-  assetPaths: portfolioContent.assets,
-  exhibitContent: portfolioContent.exhibits,
-});
+const fallbackPortfolio = buildFallbackPortfolioContent(portfolioContent);
 
 const controls = {
   forward: false,
@@ -47,8 +47,10 @@ const appState = {
   activeExhibit: null,
   nearbyExhibit: null,
   pointerLocked: false,
+  fallbackOpen: false,
   introOpen: true,
   settingsOpen: false,
+  webglUnavailable: false,
   bobTimer: 0,
   cameraBobX: 0,
   cameraBobY: 0,
@@ -65,6 +67,7 @@ const appState = {
   debugSampleTime: 0,
   debugFrameCount: 0,
   pendingResizeFrame: 0,
+  renderLoopActive: false,
 };
 const INTERACTION_REFRESH_INTERVAL = isTouchDevice ? 0.12 : 0.08;
 const DEBUG_SAMPLE_INTERVAL = 0.25;
@@ -81,6 +84,7 @@ const bestInteractTarget = createInteractMetrics();
 const currentInteractTarget = createInteractMetrics();
 
 let sensitivityProfile = getSensitivityProfile(experienceSettings.sensitivity);
+let world = null;
 
 initialize();
 
@@ -92,13 +96,16 @@ function initialize() {
   appState.initialized = true;
   hydrateStaticContent(refs, portfolioContent, isTouchDevice, {
     enterRealm: handleEnterRealm,
+    openFallbackMode: handleOpenFallbackMode,
     mobileInspect: handleInspectPrompt,
+    toggleFallbackMode: handleToggleFallbackMode,
     toggleSettingsMenu: handleToggleSettingsMenu,
     togglePointerLock: handleTogglePointerLock,
     toggleReducedMotion: handleToggleReducedMotion,
     selectSensitivity: handleSelectSensitivity,
     selectGraphicsQuality: handleSelectGraphicsQuality,
   });
+  renderFallbackPortfolio(refs, portfolioContent, fallbackPortfolio);
   setPromptState(refs, portfolioContent, {
     visible: false,
     isTouchDevice,
@@ -112,18 +119,135 @@ function initialize() {
     triangles: 0,
   });
 
-  applyExperienceSettings();
-  world.buildStaticScene();
   bindEventListeners();
+  attemptWorldInitialization();
+  applyExperienceSettings();
+  syncAppShell();
+
+  if (!world) {
+    openFallbackMode({
+      hideIntro: true,
+      reason: "webgl",
+    });
+    return;
+  }
+
+  world.buildStaticScene();
 
   const fontsReady = document.fonts ? document.fonts.ready : Promise.resolve();
   fontsReady.finally(() => {
+    if (!world) {
+      return;
+    }
+
     world.buildExhibits();
     updateInteractionUI();
   });
 
   updateInteractionUI();
-  world.renderer.setAnimationLoop(animate);
+  setRenderLoopActive(true);
+}
+
+function attemptWorldInitialization() {
+  try {
+    world = createWorld({
+      canvas: refs.canvas,
+      isTouchDevice,
+      assetPaths: portfolioContent.assets,
+      exhibitContent: portfolioContent.exhibits,
+    });
+  } catch (error) {
+    appState.webglUnavailable = true;
+    console.error("Three.js portfolio unavailable. Falling back to the 2D portfolio mode.", error);
+  }
+}
+
+function isWorldAvailable() {
+  return Boolean(world) && !appState.webglUnavailable;
+}
+
+function syncAppShell() {
+  const worldAvailable = isWorldAvailable();
+
+  refs.introPanel.classList.toggle("hidden", !appState.introOpen || appState.fallbackOpen);
+  updateFallbackState(refs, portfolioContent, {
+    fallbackOpen: appState.fallbackOpen,
+    worldAvailable,
+    webglUnavailable: appState.webglUnavailable,
+  });
+  updateUtilityState(refs, portfolioContent, {
+    isTouchDevice,
+    pointerLocked: appState.pointerLocked,
+    settingsOpen: appState.settingsOpen,
+    fallbackOpen: appState.fallbackOpen,
+    worldAvailable,
+  });
+
+  if (appState.fallbackOpen || !worldAvailable) {
+    appState.nearbyExhibit = null;
+    setPromptState(refs, portfolioContent, {
+      visible: false,
+      isTouchDevice,
+      isIntroOpen: appState.introOpen,
+    });
+    refs.mobileInspect.disabled = true;
+    refs.mobileInspect.classList.add("is-disabled");
+  }
+}
+
+function openFallbackMode(options = {}) {
+  const { hideIntro = false, reason = null } = options;
+
+  if (hideIntro) {
+    appState.introOpen = false;
+  }
+  if (reason === "webgl") {
+    appState.webglUnavailable = true;
+  }
+
+  clearMovement();
+  if (appState.pointerLocked && document.pointerLockElement === refs.canvas) {
+    document.exitPointerLock();
+  }
+
+  appState.pointerLocked = false;
+  refs.body.classList.remove("is-locked");
+  appState.settingsOpen = false;
+  appState.activeExhibit = null;
+  appState.fallbackOpen = true;
+  hideInspectPanel(refs);
+  setRenderLoopActive(false);
+  if (appState.debugOpen) {
+    appState.debugOpen = false;
+    updateDebugMetrics(refs, {
+      visible: false,
+      fps: 0,
+      graphicsQuality: experienceSettings.graphicsQuality,
+      drawCalls: 0,
+      triangles: 0,
+    });
+  }
+  syncAppShell();
+  flagInteractionRefresh();
+
+  const focusTarget = isWorldAvailable() ? refs.fallbackClose : refs.fallbackHeroTitle;
+  focusTarget?.focus({ preventScroll: true });
+}
+
+function closeFallbackMode() {
+  if (!appState.fallbackOpen || !isWorldAvailable()) {
+    return;
+  }
+
+  appState.fallbackOpen = false;
+  setRenderLoopActive(true);
+  syncAppShell();
+  flagInteractionRefresh();
+  refs.portfolioToggle.focus({ preventScroll: true });
+
+  if (world) {
+    updateInteractionUI();
+  }
 }
 
 function bindEventListeners() {
@@ -132,12 +256,14 @@ function bindEventListeners() {
   }
 
   appState.listenersBound = true;
+  refs.fallbackClose.addEventListener("click", closeFallbackMode);
   refs.inspectPrompt.addEventListener("click", handleInspectPrompt);
   refs.canvas.addEventListener("click", handleCanvasClick);
   refs.canvas.addEventListener("pointerdown", handleCanvasPointerDown);
   refs.canvas.addEventListener("pointermove", handleCanvasPointerMove);
   refs.canvas.addEventListener("pointerup", endTouchLook);
   refs.canvas.addEventListener("pointercancel", endTouchLook);
+  refs.canvas.addEventListener("webglcontextlost", handleWebglContextLost, { passive: false });
   document.addEventListener("pointerlockchange", handlePointerLockChange);
   document.addEventListener("mousemove", handleDocumentMouseMove);
   document.addEventListener("keydown", handleDocumentKeyDown);
@@ -155,6 +281,10 @@ function bindEventListeners() {
 }
 
 function animate() {
+  if (!world) {
+    return;
+  }
+
   const delta = Math.min(world.clock.getDelta(), 0.05);
   const elapsed = world.clock.elapsedTime;
 
@@ -174,8 +304,21 @@ function animate() {
   updateDebugPanel(delta);
 }
 
+function setRenderLoopActive(active) {
+  if (!world || appState.renderLoopActive === active) {
+    return;
+  }
+
+  world.renderer.setAnimationLoop(active ? animate : null);
+  appState.renderLoopActive = active;
+}
+
 function updatePlayer(delta) {
-  if (appState.introOpen || appState.activeExhibit || appState.settingsOpen) {
+  if (!world) {
+    return;
+  }
+
+  if (appState.introOpen || appState.fallbackOpen || appState.activeExhibit || appState.settingsOpen) {
     moveVelocity.multiplyScalar(Math.exp(-6 * delta));
     appState.sprintBlend = THREE.MathUtils.damp(appState.sprintBlend, 0, 6, delta);
     updateCameraEffects(delta, 0, 0);
@@ -269,6 +412,10 @@ function updateCameraEffects(delta, speed, strafeInput) {
 }
 
 function applyLookButtons(delta) {
+  if (!world) {
+    return;
+  }
+
   if (controls.turnLeft) {
     world.yawRig.rotation.y += world.config.turnSpeed * sensitivityProfile.buttonTurn * delta;
   }
@@ -292,6 +439,18 @@ function applyLookButtons(delta) {
 }
 
 function updateInteractionUI() {
+  if (!world || appState.fallbackOpen) {
+    appState.nearbyExhibit = null;
+    setPromptState(refs, portfolioContent, {
+      visible: false,
+      isTouchDevice,
+      isIntroOpen: appState.introOpen,
+    });
+    refs.mobileInspect.disabled = true;
+    refs.mobileInspect.classList.add("is-disabled");
+    return;
+  }
+
   const nearest = world.getNearestExhibit(world.playerRig.position);
   world.camera.getWorldPosition(eyePosition);
   world.camera.getWorldDirection(cameraForward);
@@ -420,7 +579,7 @@ function updateNearestLandmark(reference) {
 }
 
 function updateDebugPanel(delta) {
-  if (!appState.debugOpen) {
+  if (!appState.debugOpen || !world) {
     return;
   }
 
@@ -466,6 +625,18 @@ function flagInteractionRefresh() {
 }
 
 function toggleDebugPanel() {
+  if (!world) {
+    appState.debugOpen = false;
+    updateDebugMetrics(refs, {
+      visible: false,
+      fps: 0,
+      graphicsQuality: experienceSettings.graphicsQuality,
+      drawCalls: 0,
+      triangles: 0,
+    });
+    return;
+  }
+
   appState.debugOpen = !appState.debugOpen;
   appState.debugFrameCount = 0;
   appState.debugSampleTime = 0;
@@ -480,7 +651,7 @@ function toggleDebugPanel() {
 }
 
 function scheduleResize() {
-  if (appState.pendingResizeFrame) {
+  if (!world || appState.pendingResizeFrame) {
     return;
   }
 
@@ -492,7 +663,7 @@ function scheduleResize() {
 }
 
 function openExhibit(exhibit) {
-  if (!exhibit || appState.activeExhibit?.id === exhibit.id) {
+  if (!world || appState.fallbackOpen || !exhibit || appState.activeExhibit?.id === exhibit.id) {
     return;
   }
 
@@ -516,7 +687,9 @@ function openExhibit(exhibit) {
 function closeExhibit(restoreControl) {
   appState.activeExhibit = null;
   hideInspectPanel(refs);
-  updateInteractionUI();
+  if (world) {
+    updateInteractionUI();
+  }
 
   if (restoreControl && !isTouchDevice) {
     requestPointerLock();
@@ -527,15 +700,13 @@ function closeExhibit(restoreControl) {
 
 function applyExperienceSettings() {
   sensitivityProfile = getSensitivityProfile(experienceSettings.sensitivity);
-  world.applyPresentationSettings(experienceSettings);
+  if (world) {
+    world.applyPresentationSettings(experienceSettings);
+  }
   refs.body.classList.toggle("is-reduced-motion", experienceSettings.reducedMotion);
   updateSettingsControls(refs, portfolioContent, experienceSettings);
-  updateUtilityState(refs, portfolioContent, {
-    isTouchDevice,
-    pointerLocked: appState.pointerLocked,
-    settingsOpen: appState.settingsOpen,
-  });
-  if (appState.debugOpen) {
+  syncAppShell();
+  if (appState.debugOpen && world) {
     updateDebugMetrics(refs, {
       visible: true,
       fps: 0,
@@ -543,25 +714,68 @@ function applyExperienceSettings() {
       drawCalls: world.renderer.info.render.calls,
       triangles: world.renderer.info.render.triangles,
     });
+  } else if (!world) {
+    updateDebugMetrics(refs, {
+      visible: false,
+      fps: 0,
+      graphicsQuality: experienceSettings.graphicsQuality,
+      drawCalls: 0,
+      triangles: 0,
+    });
   }
   saveExperienceSettings(experienceSettings);
   flagInteractionRefresh();
 }
 
 function handleEnterRealm() {
+  if (!isWorldAvailable()) {
+    openFallbackMode({
+      hideIntro: true,
+      reason: "webgl",
+    });
+    return;
+  }
+
   appState.introOpen = false;
-  refs.introPanel.classList.add("hidden");
+  appState.fallbackOpen = false;
+  syncAppShell();
   flagInteractionRefresh();
+  updateInteractionUI();
   requestPointerLock();
 }
 
+function handleOpenFallbackMode() {
+  openFallbackMode({
+    hideIntro: !isWorldAvailable(),
+  });
+}
+
+function handleToggleFallbackMode() {
+  if (appState.fallbackOpen) {
+    closeFallbackMode();
+    return;
+  }
+
+  openFallbackMode({
+    hideIntro: !isWorldAvailable(),
+  });
+}
+
 function handleInspectPrompt() {
+  if (appState.fallbackOpen || !world) {
+    return;
+  }
+
   if (appState.nearbyExhibit) {
     openExhibit(appState.nearbyExhibit);
   }
 }
 
 function handleToggleSettingsMenu() {
+  if (!world || appState.fallbackOpen) {
+    return;
+  }
+
   appState.settingsOpen = !appState.settingsOpen;
 
   if (appState.settingsOpen && appState.pointerLocked && document.pointerLockElement === refs.canvas) {
@@ -572,16 +786,12 @@ function handleToggleSettingsMenu() {
     clearMovement();
   }
 
-  updateUtilityState(refs, portfolioContent, {
-    isTouchDevice,
-    pointerLocked: appState.pointerLocked,
-    settingsOpen: appState.settingsOpen,
-  });
+  syncAppShell();
   flagInteractionRefresh();
 }
 
 function handleTogglePointerLock() {
-  if (isTouchDevice) {
+  if (isTouchDevice || !world || appState.fallbackOpen) {
     return;
   }
 
@@ -611,7 +821,9 @@ function handleSelectGraphicsQuality(value) {
 
 function handleCanvasClick() {
   if (
+    world &&
     !appState.introOpen &&
+    !appState.fallbackOpen &&
     !appState.activeExhibit &&
     !appState.settingsOpen &&
     !isTouchDevice
@@ -622,9 +834,11 @@ function handleCanvasClick() {
 
 function handleCanvasPointerDown(event) {
   if (
+    !world ||
     !isTouchDevice ||
     !event.isPrimary ||
     appState.activeExhibit ||
+    appState.fallbackOpen ||
     appState.introOpen ||
     appState.settingsOpen ||
     appState.touchLookId !== null
@@ -639,7 +853,7 @@ function handleCanvasPointerDown(event) {
 }
 
 function handleCanvasPointerMove(event) {
-  if (!isTouchDevice || appState.touchLookId !== event.pointerId) {
+  if (!world || appState.fallbackOpen || !isTouchDevice || appState.touchLookId !== event.pointerId) {
     return;
   }
 
@@ -666,16 +880,21 @@ function handlePointerLockChange() {
     clearMovement();
   }
 
-  updateUtilityState(refs, portfolioContent, {
-    isTouchDevice,
-    pointerLocked: appState.pointerLocked,
-    settingsOpen: appState.settingsOpen,
-  });
+  syncAppShell();
   flagInteractionRefresh();
 }
 
+function handleWebglContextLost(event) {
+  event.preventDefault();
+  console.error("WebGL context lost. Switching to the 2D portfolio mode.");
+  openFallbackMode({
+    hideIntro: true,
+    reason: "webgl",
+  });
+}
+
 function handleDocumentMouseMove(event) {
-  if (!appState.pointerLocked || appState.settingsOpen) {
+  if (!world || appState.fallbackOpen || !appState.pointerLocked || appState.settingsOpen) {
     return;
   }
 
@@ -689,6 +908,8 @@ function handleDocumentMouseMove(event) {
 }
 
 function handleDocumentKeyDown(event) {
+  const worldAvailable = isWorldAvailable();
+
   if (event.repeat) {
     return;
   }
@@ -699,18 +920,23 @@ function handleDocumentKeyDown(event) {
     return;
   }
 
+  if (appState.fallbackOpen) {
+    if (event.code === "Escape" && worldAvailable) {
+      event.preventDefault();
+      closeFallbackMode();
+    }
+    return;
+  }
+
   if (event.code === "Escape" && appState.settingsOpen) {
     appState.settingsOpen = false;
-    updateUtilityState(refs, portfolioContent, {
-      isTouchDevice,
-      pointerLocked: appState.pointerLocked,
-      settingsOpen: appState.settingsOpen,
-    });
+    syncAppShell();
     flagInteractionRefresh();
     return;
   }
 
-  const movementBlocked = appState.settingsOpen || appState.activeExhibit;
+  const movementBlocked =
+    !worldAvailable || appState.introOpen || appState.settingsOpen || appState.activeExhibit;
 
   switch (event.code) {
     case "KeyW":
@@ -740,7 +966,7 @@ function handleDocumentKeyDown(event) {
       }
       break;
     case "KeyE":
-      if (appState.settingsOpen) {
+      if (!worldAvailable || appState.settingsOpen || appState.introOpen) {
         break;
       }
       if (appState.activeExhibit) {
@@ -750,7 +976,7 @@ function handleDocumentKeyDown(event) {
       }
       break;
     case "Comma":
-      if (!appState.introOpen && !appState.activeExhibit) {
+      if (worldAvailable && !appState.introOpen && !appState.activeExhibit) {
         handleToggleSettingsMenu();
       }
       break;
@@ -788,7 +1014,7 @@ function handleDocumentKeyUp(event) {
 }
 
 function handleControlPointerDown(event) {
-  if (appState.settingsOpen || appState.activeExhibit) {
+  if (!world || appState.introOpen || appState.fallbackOpen || appState.settingsOpen || appState.activeExhibit) {
     return;
   }
 
@@ -809,8 +1035,10 @@ function handleControlPointerUp(event) {
 
 function requestPointerLock() {
   if (
+    !world ||
     isTouchDevice ||
     appState.introOpen ||
+    appState.fallbackOpen ||
     appState.activeExhibit ||
     appState.settingsOpen ||
     document.pointerLockElement === refs.canvas ||
@@ -829,17 +1057,22 @@ function clearMovement() {
   refs.controlButtons.forEach((button) => {
     button.classList.remove("is-active");
   });
+  releaseTouchLook();
 }
 
-function endTouchLook(event) {
-  if (appState.touchLookId !== event.pointerId) {
+function releaseTouchLook(pointerId = appState.touchLookId) {
+  if (pointerId === null || appState.touchLookId !== pointerId) {
     return;
   }
 
   appState.touchLookId = null;
-  if (refs.canvas.hasPointerCapture(event.pointerId)) {
-    refs.canvas.releasePointerCapture(event.pointerId);
+  if (refs.canvas.hasPointerCapture?.(pointerId)) {
+    refs.canvas.releasePointerCapture(pointerId);
   }
+}
+
+function endTouchLook(event) {
+  releaseTouchLook(event.pointerId);
 }
 
 function onResize() {

@@ -91,10 +91,18 @@ const state = {
   lastTouchY: 0,
 };
 
+const initState = {
+  initialized: false,
+  staticSceneBuilt: false,
+  exhibitsBuilt: false,
+  listenersBound: false,
+};
+
 const moveVelocity = new THREE.Vector3();
 const floaters = [];
 const pulsingLights = [];
 const obstacleFields = [];
+const controlButtons = Array.from(document.querySelectorAll("[data-control]"));
 
 const materials = {
   stone: new THREE.MeshStandardMaterial({
@@ -305,52 +313,116 @@ const exhibits = [
   },
 ];
 
-controlsCopy.textContent = isTouchDevice
-  ? "Use the movement sigils, drag to look, and tap a landmark prompt to inspect."
-  : "WASD moves. Mouse looks. Shift sprints. E inspects nearby landmarks.";
-crosshair.classList.toggle("hidden", isTouchDevice);
+initialize();
 
-createSkyDome();
-createLighting();
-createGround();
-createStonePaths();
-createLanternPath();
-createForestRing();
-createFloatingIslands();
-createDistantStructures();
-createStarField();
+function initialize() {
+  if (initState.initialized) {
+    return;
+  }
 
-const fontsReady = document.fonts ? document.fonts.ready : Promise.resolve();
-fontsReady.finally(() => {
-  createExhibits();
+  initState.initialized = true;
+  controlsCopy.textContent = isTouchDevice
+    ? "Use the movement sigils, drag to look, and tap a landmark prompt to inspect."
+    : "WASD moves. Mouse looks. Shift sprints. E inspects nearby landmarks.";
+  crosshair.classList.toggle("hidden", isTouchDevice);
+  setPromptVisibility(false);
+
+  buildStaticScene();
+  bindEventListeners();
+
+  // Canvas-textured labels depend on web fonts; only build the exhibit set once.
+  const fontsReady = document.fonts ? document.fonts.ready : Promise.resolve();
+  fontsReady.finally(() => {
+    buildExhibitsOnce();
+    updateNearestLandmark();
+  });
+
   updateNearestLandmark();
-});
+  renderer.setAnimationLoop(animate);
+}
 
-setPromptVisibility(false);
-updateNearestLandmark();
+function buildStaticScene() {
+  if (initState.staticSceneBuilt) {
+    return;
+  }
 
-enterRealmButton.addEventListener("click", () => {
+  initState.staticSceneBuilt = true;
+  createSkyDome();
+  createLighting();
+  createGround();
+  createStonePaths();
+  createLanternPath();
+  createForestRing();
+  createFloatingIslands();
+  createDistantStructures();
+  createStarField();
+}
+
+function buildExhibitsOnce() {
+  if (initState.exhibitsBuilt) {
+    return;
+  }
+
+  createExhibits();
+  initState.exhibitsBuilt = true;
+}
+
+function bindEventListeners() {
+  if (initState.listenersBound) {
+    return;
+  }
+
+  initState.listenersBound = true;
+  enterRealmButton.addEventListener("click", handleEnterRealm);
+  inspectPrompt.addEventListener("click", handleInspectPrompt);
+  canvas.addEventListener("click", handleCanvasClick);
+  canvas.addEventListener("pointerdown", handleCanvasPointerDown);
+  canvas.addEventListener("pointermove", handleCanvasPointerMove);
+  canvas.addEventListener("pointerup", endTouchLook);
+  canvas.addEventListener("pointercancel", endTouchLook);
+  document.addEventListener("pointerlockchange", handlePointerLockChange);
+  document.addEventListener("mousemove", handleDocumentMouseMove);
+  document.addEventListener("keydown", handleDocumentKeyDown);
+  document.addEventListener("keyup", handleDocumentKeyUp);
+  window.addEventListener("blur", clearMovement);
+  window.addEventListener("resize", onResize);
+
+  controlButtons.forEach((button) => {
+    button.addEventListener("pointerdown", handleControlPointerDown);
+    button.addEventListener("pointerup", handleControlPointerUp);
+    button.addEventListener("pointerleave", handleControlPointerUp);
+    button.addEventListener("pointercancel", handleControlPointerUp);
+  });
+}
+
+function handleEnterRealm() {
   state.introOpen = false;
   introPanel.classList.add("hidden");
   if (!isTouchDevice) {
     requestPointerLock();
   }
-});
+}
 
-inspectPrompt.addEventListener("click", () => {
+function handleInspectPrompt() {
   if (state.nearbyExhibit) {
     openExhibit(state.nearbyExhibit);
   }
-});
+}
 
-canvas.addEventListener("click", () => {
+function handleCanvasClick() {
   if (!state.introOpen && !state.activeExhibit && !isTouchDevice) {
     requestPointerLock();
   }
-});
+}
 
-canvas.addEventListener("pointerdown", (event) => {
-  if (!isTouchDevice || state.activeExhibit || state.introOpen) {
+function handleCanvasPointerDown(event) {
+  if (
+    !isTouchDevice ||
+    !event.isPrimary ||
+    state.activeExhibit ||
+    state.introOpen ||
+    state.touchLookId !== null
+  ) {
     return;
   }
 
@@ -358,9 +430,9 @@ canvas.addEventListener("pointerdown", (event) => {
   state.lastTouchX = event.clientX;
   state.lastTouchY = event.clientY;
   canvas.setPointerCapture(event.pointerId);
-});
+}
 
-canvas.addEventListener("pointermove", (event) => {
+function handleCanvasPointerMove(event) {
   if (!isTouchDevice || state.touchLookId !== event.pointerId) {
     return;
   }
@@ -375,17 +447,14 @@ canvas.addEventListener("pointermove", (event) => {
     -1.05,
     1.05
   );
-});
+}
 
-canvas.addEventListener("pointerup", endTouchLook);
-canvas.addEventListener("pointercancel", endTouchLook);
-
-document.addEventListener("pointerlockchange", () => {
+function handlePointerLockChange() {
   state.pointerLocked = document.pointerLockElement === canvas;
   body.classList.toggle("is-locked", state.pointerLocked);
-});
+}
 
-document.addEventListener("mousemove", (event) => {
+function handleDocumentMouseMove(event) {
   if (!state.pointerLocked) {
     return;
   }
@@ -396,9 +465,9 @@ document.addEventListener("mousemove", (event) => {
     -1.05,
     1.05
   );
-});
+}
 
-document.addEventListener("keydown", (event) => {
+function handleDocumentKeyDown(event) {
   if (event.repeat) {
     return;
   }
@@ -435,9 +504,9 @@ document.addEventListener("keydown", (event) => {
     default:
       break;
   }
-});
+}
 
-document.addEventListener("keyup", (event) => {
+function handleDocumentKeyUp(event) {
   switch (event.code) {
     case "KeyW":
       controls.forward = false;
@@ -458,31 +527,23 @@ document.addEventListener("keyup", (event) => {
     default:
       break;
   }
-});
+}
 
-window.addEventListener("blur", clearMovement);
-window.addEventListener("resize", onResize);
-
-document.querySelectorAll("[data-control]").forEach((button) => {
+function handleControlPointerDown(event) {
+  event.preventDefault();
+  const button = event.currentTarget;
   const { control } = button.dataset;
-  const activate = (event) => {
-    event.preventDefault();
-    controls[control] = true;
-    button.classList.add("is-active");
-  };
-  const deactivate = (event) => {
-    event.preventDefault();
-    controls[control] = false;
-    button.classList.remove("is-active");
-  };
+  controls[control] = true;
+  button.classList.add("is-active");
+}
 
-  button.addEventListener("pointerdown", activate);
-  button.addEventListener("pointerup", deactivate);
-  button.addEventListener("pointerleave", deactivate);
-  button.addEventListener("pointercancel", deactivate);
-});
-
-renderer.setAnimationLoop(animate);
+function handleControlPointerUp(event) {
+  event.preventDefault();
+  const button = event.currentTarget;
+  const { control } = button.dataset;
+  controls[control] = false;
+  button.classList.remove("is-active");
+}
 
 function animate() {
   const delta = Math.min(clock.getDelta(), 0.05);
@@ -627,10 +688,14 @@ function updateNearestLandmark(nearest = getNearestExhibit()) {
 }
 
 function setPromptVisibility(visible) {
-  inspectPrompt.classList.toggle("hidden", !visible);
+  inspectPrompt.classList.toggle("hidden", !visible || state.introOpen);
 }
 
 function openExhibit(exhibit) {
+  if (!exhibit || state.activeExhibit?.id === exhibit.id) {
+    return;
+  }
+
   state.activeExhibit = exhibit;
   state.nearbyExhibit = exhibit;
   inspectZone.textContent = exhibit.zone;
@@ -687,16 +752,24 @@ function closeExhibit(restoreControl) {
 }
 
 function requestPointerLock() {
-  if (typeof canvas.requestPointerLock === "function") {
-    canvas.requestPointerLock();
+  if (
+    isTouchDevice ||
+    state.introOpen ||
+    state.activeExhibit ||
+    document.pointerLockElement === canvas ||
+    typeof canvas.requestPointerLock !== "function"
+  ) {
+    return;
   }
+
+  canvas.requestPointerLock();
 }
 
 function clearMovement() {
   Object.keys(controls).forEach((key) => {
     controls[key] = false;
   });
-  document.querySelectorAll(".control-button").forEach((button) => {
+  controlButtons.forEach((button) => {
     button.classList.remove("is-active");
   });
 }
@@ -707,7 +780,9 @@ function endTouchLook(event) {
   }
 
   state.touchLookId = null;
-  canvas.releasePointerCapture(event.pointerId);
+  if (canvas.hasPointerCapture(event.pointerId)) {
+    canvas.releasePointerCapture(event.pointerId);
+  }
 }
 
 function onResize() {
@@ -1046,6 +1121,11 @@ function createStarField() {
 }
 
 function createExhibits() {
+  // Guard against accidental re-entry from async font resolution or manual init.
+  if (obstacleFields.length > 0) {
+    return;
+  }
+
   exhibits.forEach((exhibit) => {
     exhibit.position.y = terrainHeight(exhibit.position.x, exhibit.position.z);
     switch (exhibit.type) {

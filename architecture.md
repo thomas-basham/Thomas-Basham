@@ -1,104 +1,170 @@
-### Architecture Notes
+# Portfolio Architecture
 
-- `index.html` is the static shell. It only holds the canvas and HUD mount points.
-- `styles.css` owns the fantasy HUD styling, responsive layout, and mobile control presentation.
-- `main.js` is the entrypoint. It wires DOM state, input, movement, and the render loop.
-- `app/content.js` is the single source of truth for portfolio copy, links, asset paths, and exhibit metadata.
-- `app/dom.js` renders intro/inspect UI content and keeps DOM updates separate from scene logic.
-- `app/settings.js` manages persisted experience settings such as reduced motion, sensitivity, and graphics quality.
-- `app/world.js` builds the Three.js renderer, environment, terrain, and exhibit meshes.
-- `app/render-utils.js` contains reusable texture/material helpers for labels, project cards, sigils, and portal effects.
+## Project Overview
 
-#### Editing Content
+This project is a static portfolio site with two entry paths:
 
-- Update links, labels, contact info, intro copy, and exhibit descriptions in `app/content.js`.
-- Update settings copy and utility labels in `app/content.js`; runtime defaults and persistence live in `app/settings.js`.
-- Add or move a portfolio landmark by editing an exhibit entry in `app/content.js`, especially `type`, `position`, `accent`, and `actions`.
-- Leave `app/world.js` alone unless you want to change scene composition or gameplay behavior.
+- A first-person Three.js world that presents portfolio content as landmarks in a fantasy environment.
+- A recruiter-friendly 2D fallback mode for users who cannot or do not want to use the 3D experience.
 
-### Accessibility Checklist
+There is no framework, no build step, and no runtime dependency installation required for deployment. The site ships as plain HTML, CSS, JavaScript, and static assets.
 
-- Added dialog semantics, labels, and described-by relationships for the intro, settings, inspect, and fallback panels.
-- Improved keyboard support with focus management for modal-style panels, Escape-based exits, and clearer focus return after panels close.
-- Strengthened focus-visible styling, touch target sizing, and text contrast across the HUD and fallback portfolio.
-- Clarified pointer-lock behavior in the UI so desktop users know how to enable mouse-look and how to exit it.
-- Reduced HUD clutter while primary panels are open so recruiters and keyboard users are not competing with every overlay at once.
-- Kept reduced-motion support for both the 3D experience and the fallback interface.
-- Improved screen-reader support for the inspect prompt, fallback mode visibility, and WebGL failure handling.
+## File Structure
 
-#### Remaining 3D Limitations
+- `index.html`: static document shell, SEO metadata, canvas mount, HUD markup, fallback mode markup.
+- `styles.css`: all layout, HUD, fallback-mode, motion, and responsive styling.
+- `main.js`: app bootstrap, input, panel state, pointer lock flow, fallback-mode switching, render loop.
+- `app/content.js`: single source of truth for portfolio copy, links, assets, and landmark content.
+- `app/config.js`: central runtime tunables for movement, interaction, quality, and startup validation.
+- `app/dom.js`: DOM lookup and UI rendering helpers for intro, inspect, fallback, settings, and metrics.
+- `app/settings.js`: persisted user settings and adaptive default quality selection.
+- `app/validation.js`: startup validation, recoverable warnings, and content sanitization.
+- `app/render-utils.js`: shared material, texture, and canvas-texture helpers.
+- `app/world.js`: Three.js world creation, scenery, lighting, exhibits, collision, and ambient motion.
+- `app/three.js`: pinned CDN import for Three.js.
 
-- First-person exploration still relies on pointer lock for the best desktop experience, which is inherently less screen-reader-friendly than the fallback portfolio mode.
-- The live 3D scene communicates spatial proximity visually and through interaction prompts, but it is not a full non-visual spatial navigation experience.
-- The built-in 2D portfolio mode is the recommended path for users who prefer keyboard-only, screen-reader-first, or reduced-complexity navigation.
+## Controls
 
-### Deployment
+### Desktop
 
-#### Before You Deploy
+- `W`, `A`, `S`, `D`: move
+- `Shift`: sprint
+- `E`: inspect or close a nearby landmark
+- `,`: open settings
+- `` ` ``: toggle runtime metrics
+- `Esc`: release mouse-look or close the active panel where applicable
 
-- Replace every `https://your-domain.com` placeholder in `index.html`, `robots.txt`, and `sitemap.xml`.
-- Update the JSON-LD block in `index.html` if you want a different canonical URL, image URL, or social profile set.
-- Keep the root file structure intact; this site is deployed directly as static HTML, CSS, JS, and assets.
+Mouse-look is opt-in. Users must click `Enable Mouse-Look` or the canvas to enter pointer lock.
 
-#### Vercel
+### Mobile
 
-- Import the repository as a plain static project.
-- If Vercel asks for a build command, leave it empty for this repo.
-- Set the output directory to the repository root (`.`) because `index.html` already lives there.
+- Left control pad: movement
+- Right control pad: turn and look
+- `Run`: sprint
+- `Inspect`: open the current landmark when in range
+- Drag on the canvas: touch look
 
-#### Netlify
+## Content Editing Instructions
 
-- Create a new site from the repository or drag the project folder into Netlify Drop.
-- Leave the build command empty for this repo.
-- Set the publish directory to the repository root (`.`).
+Most portfolio edits should happen in `app/content.js`.
 
-#### GitHub Pages
+### Update portfolio text and links
 
-- Push the repository to GitHub and enable Pages in the repository settings.
+- Edit `portfolioContent.links` for GitHub, LinkedIn, resume, and email destinations.
+- Edit `portfolioContent.intro`, `portfolioContent.fallbackMode`, `portfolioContent.fallbackCta`, and `portfolioContent.utility` for UI copy.
+- Edit `portfolioContent.seo` for titles, descriptions, canonical URL placeholders, and theme color.
+
+### Update landmarks and project content
+
+Each exhibit in `portfolioContent.exhibits` maps to one landmark in the 3D world and one card or section in fallback mode.
+
+Important fields:
+
+- `id`: stable internal key
+- `type`: one of `portrait`, `grove`, `sanctum`, `project`, `portal`
+- `zone`: landmark zone label
+- `title`, `kicker`, `body`: main content
+- `bullets`: supporting points
+- `actions`: CTA buttons or links
+- `accent`: zone color
+- `position.x`, `position.z`: world placement
+- `colliderRadius`: interaction/collision footprint
+
+Optional fields:
+
+- `labelEyebrow`
+- `featuredTag`
+- `featuredRank`
+- `glyph`
+- `sigils`
+- `emphasisScale`
+
+Startup validation will warn about bad content and skip invalid exhibits instead of breaking the whole site.
+
+## Local Dev Instructions
+
+This site should be served from a local HTTP server because ES modules and asset loading are browser-restricted on `file://`.
+
+From the repo root:
+
+```bash
+python3 -m http.server 4173
+```
+
+Then open:
+
+```text
+http://localhost:4173
+```
+
+Notes:
+
+- No build step is required.
+- No bundler is required.
+- If you prefer another static server, any equivalent tool is fine.
+
+## Deployment Instructions
+
+### General
+
+- Deploy the repository root as a static site.
+- Do not add a build command unless your host requires a no-op.
+- Replace every `https://your-domain.com` placeholder before going live.
+
+### Vercel
+
+- Import the repo as a static project.
+- Leave the build command empty.
+- Use `.` as the output directory.
+
+### Netlify
+
+- Create a new site from the repository.
+- Leave the build command empty.
+- Use `.` as the publish directory.
+
+### GitHub Pages
+
 - Publish from the branch that contains the static files at the repository root.
-- If you deploy to a project subpath instead of a custom domain, use that full subpath URL in the canonical, sitemap, and structured-data placeholders.
-- Keep the included `.nojekyll` file so GitHub Pages serves the site without Jekyll processing.
+- Keep `.nojekyll` in place.
+- If deploying under a project subpath, update canonical URLs, sitemap entries, and structured data to use that full path.
 
-### Production Readiness Checklist
+## Performance Notes
 
-- Keep runtime tunables in `app/config.js`; movement feel, interaction range, world size, and quality profiles now live there instead of being scattered through `main.js` and `app/world.js`.
-- Run the built-in startup validation on page load by keeping `main.js` wired through `runStartupValidation()` in `app/validation.js`.
-- Treat console warnings with the `[portfolio]` prefix as recoverable issues that should be fixed before deployment.
-- Keep required asset paths populated in `app/content.js`; missing image paths now fall back to generated textures, but that is a safeguard, not the desired production state.
-- Keep required exhibit fields populated in `app/content.js`; invalid exhibits are skipped during startup validation so one broken landmark does not break the whole experience.
+- Quality defaults are adaptive. Mobile and coarse-pointer devices start lower than desktop by design.
+- Static scenery is batched where possible to reduce draw calls.
+- Canvas-generated UI textures are cached by quality level.
+- The render loop is paused while the 2D fallback mode is open.
+- Lower quality modes reduce pixel ratio, shadow cost, pulsing-light cost, and texture work.
 
-### Manual QA Checklist
+Practical guidance:
 
-#### Desktop
+- Keep new landmarks limited and intentional.
+- Reuse existing helper builders before adding new mesh patterns.
+- Avoid adding large transparent effects or new shadow-casting lights without checking mobile behavior.
 
-- Load the site with a clean cache and confirm the intro panel, fallback CTA, and primary controls render without console errors.
-- Enter the 3D world, enable mouse-look, confirm `Esc` releases pointer lock, and verify the settings panel still works after relocking.
-- Walk to each landmark and confirm inspect prompts appear consistently, inspect panels open, and every CTA link resolves correctly.
-- Toggle reduced motion, sensitivity, graphics quality, and debug metrics; confirm the scene updates without rebuild artifacts.
-- Temporarily break one asset path in `app/content.js` and confirm the site stays usable with a warning and placeholder texture instead of crashing.
-- Temporarily remove a non-essential exhibit field and confirm startup validation warns and skips only the broken exhibit.
+## Accessibility Notes
 
-#### Mobile
+- The 2D fallback mode is the primary accessible review path.
+- Intro, settings, inspect, and fallback panels use dialog semantics and focus management.
+- Reduced-motion preferences are respected in both CSS and runtime behavior.
+- Pointer lock is explained in the UI and is never forced automatically on page load.
+- The 3D experience remains visually and spatially oriented, so it is not a full screen-reader-first navigation model.
 
-- Confirm the intro, fallback mode, and mobile HUD fit within the safe area in portrait and landscape.
-- Verify touch look, movement buttons, sprint, and inspect remain usable without accidental browser gesture conflicts.
-- Open and close inspect panels, fallback mode, and settings multiple times to confirm focus/state does not get stuck.
-- Test on a lower-end device or throttled emulator with `low` quality and confirm the scene remains responsive and battery-conscious.
-- Confirm the 2D fallback mode remains fully usable when the user never enters the 3D world.
+## Final Launch Checklist
 
-### Deployment Checklist
+- Replace all placeholder production URLs in `index.html`, `robots.txt`, `sitemap.xml`, and `app/content.js` as needed.
+- Open the deployed site on desktop and verify intro, fallback mode, inspect panels, settings, and pointer lock all behave correctly.
+- Open the deployed site on mobile and verify touch look, movement, sprint, inspect, and fallback mode remain usable.
+- Check the browser console on the happy path and confirm there are no `[portfolio]` warnings.
+- Verify resume, GitHub, LinkedIn, and email CTAs from the intro, fallback mode, and contact landmark.
+- Confirm `headshot.jpeg`, AWS badge images, favicon files, `robots.txt`, `sitemap.xml`, and `site.webmanifest` are served correctly.
+- Test one WebGL failure scenario and confirm the site falls back automatically to the 2D portfolio.
+- Review the actual live page title, description, canonical URL, Open Graph image, and Twitter card metadata against the production domain.
 
-- Replace every `https://your-domain.com` placeholder before shipping.
-- Confirm `headshot.jpeg`, AWS badge images, favicon files, `robots.txt`, `sitemap.xml`, and `site.webmanifest` are present in the deployed root.
-- Open the production URL and verify Open Graph image, title, description, and canonical URL resolve to the real domain.
-- Check that the browser console is free of `[portfolio]` warnings in the expected happy path.
-- Test one WebGL-capable browser and one no-WebGL or blocked-WebGL scenario to confirm the fallback portfolio opens automatically.
-- Re-run the desktop and mobile QA checklist against the deployed domain, not just localhost.
+## Acceptable v1 Limitations
 
-### Known Limitations
-
-- Texture load failures now degrade gracefully, but placeholder textures are still a sign of an asset-path or deployment problem that should be fixed.
-- Startup validation protects against broken content and broken markup, but it cannot guarantee visual quality; a browser pass is still required before release.
-- WebGL performance and tone mapping can vary by device and browser GPU stack, so final lighting and smoothness should be checked on real hardware.
-
----
+- The 3D scene still depends on real browser and GPU behavior, so final visual tuning should be checked on at least one laptop and one phone.
+- Pointer lock can still be blocked by browser policy or gesture timing, but the UI now explains the failure and the site remains fully usable.
+- Placeholder textures and skipped exhibits fail safely, but they indicate content or deployment mistakes that should be fixed before launch.
+- The fallback mode is strong, but the 3D world is still the more visually expressive path and will always require some tradeoff against absolute accessibility.

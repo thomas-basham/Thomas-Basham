@@ -59,4 +59,46 @@
 - If you deploy to a project subpath instead of a custom domain, use that full subpath URL in the canonical, sitemap, and structured-data placeholders.
 - Keep the included `.nojekyll` file so GitHub Pages serves the site without Jekyll processing.
 
+### Production Readiness Checklist
+
+- Keep runtime tunables in `app/config.js`; movement feel, interaction range, world size, and quality profiles now live there instead of being scattered through `main.js` and `app/world.js`.
+- Run the built-in startup validation on page load by keeping `main.js` wired through `runStartupValidation()` in `app/validation.js`.
+- Treat console warnings with the `[portfolio]` prefix as recoverable issues that should be fixed before deployment.
+- Keep required asset paths populated in `app/content.js`; missing image paths now fall back to generated textures, but that is a safeguard, not the desired production state.
+- Keep required exhibit fields populated in `app/content.js`; invalid exhibits are skipped during startup validation so one broken landmark does not break the whole experience.
+
+### Manual QA Checklist
+
+#### Desktop
+
+- Load the site with a clean cache and confirm the intro panel, fallback CTA, and primary controls render without console errors.
+- Enter the 3D world, enable mouse-look, confirm `Esc` releases pointer lock, and verify the settings panel still works after relocking.
+- Walk to each landmark and confirm inspect prompts appear consistently, inspect panels open, and every CTA link resolves correctly.
+- Toggle reduced motion, sensitivity, graphics quality, and debug metrics; confirm the scene updates without rebuild artifacts.
+- Temporarily break one asset path in `app/content.js` and confirm the site stays usable with a warning and placeholder texture instead of crashing.
+- Temporarily remove a non-essential exhibit field and confirm startup validation warns and skips only the broken exhibit.
+
+#### Mobile
+
+- Confirm the intro, fallback mode, and mobile HUD fit within the safe area in portrait and landscape.
+- Verify touch look, movement buttons, sprint, and inspect remain usable without accidental browser gesture conflicts.
+- Open and close inspect panels, fallback mode, and settings multiple times to confirm focus/state does not get stuck.
+- Test on a lower-end device or throttled emulator with `low` quality and confirm the scene remains responsive and battery-conscious.
+- Confirm the 2D fallback mode remains fully usable when the user never enters the 3D world.
+
+### Deployment Checklist
+
+- Replace every `https://your-domain.com` placeholder before shipping.
+- Confirm `headshot.jpeg`, AWS badge images, favicon files, `robots.txt`, `sitemap.xml`, and `site.webmanifest` are present in the deployed root.
+- Open the production URL and verify Open Graph image, title, description, and canonical URL resolve to the real domain.
+- Check that the browser console is free of `[portfolio]` warnings in the expected happy path.
+- Test one WebGL-capable browser and one no-WebGL or blocked-WebGL scenario to confirm the fallback portfolio opens automatically.
+- Re-run the desktop and mobile QA checklist against the deployed domain, not just localhost.
+
+### Known Limitations
+
+- Texture load failures now degrade gracefully, but placeholder textures are still a sign of an asset-path or deployment problem that should be fixed.
+- Startup validation protects against broken content and broken markup, but it cannot guarantee visual quality; a browser pass is still required before release.
+- WebGL performance and tone mapping can vary by device and browser GPU stack, so final lighting and smoothness should be checked on real hardware.
+
 ---

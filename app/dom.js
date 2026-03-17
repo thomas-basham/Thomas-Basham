@@ -340,6 +340,7 @@ export function renderInspectPanel(refs, content, exhibit, onClose) {
     content.links,
     { closeInspect: onClose }
   );
+  closeButton.classList.add("action-button--subtle");
   exhibit.bullets.forEach((bullet) => {
     const item = document.createElement("li");
     item.textContent = bullet;
@@ -347,7 +348,7 @@ export function renderInspectPanel(refs, content, exhibit, onClose) {
   });
 
   renderActionList(refs.inspectActions, exhibit.actions, content.links);
-  refs.inspectActions.prepend(closeButton);
+  refs.inspectActions.appendChild(closeButton);
   setHiddenState(refs.inspectPanel, false);
 }
 
@@ -373,9 +374,10 @@ export function setPromptState(refs, content, options) {
   setHiddenState(refs.inspectPrompt, !promptVisible);
 }
 
-export function updateZoneStatus(refs, zoneName, distanceText) {
+export function updateZoneStatus(refs, zoneName, distanceText, accent = null) {
   refs.zoneName.textContent = zoneName;
   refs.zoneDistance.textContent = distanceText;
+  refs.body.style.setProperty("--zone-accent", accent ?? "var(--gold)");
 }
 
 export function updateUtilityState(refs, content, options) {

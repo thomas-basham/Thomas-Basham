@@ -194,6 +194,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     createFloatingIslands();
     createDistantStructures();
     createStarField();
+    createAtmosphereMotes();
   }
 
   function buildExhibits() {
@@ -587,20 +588,33 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       new THREE.MeshBasicMaterial({
         color: 0xf6e4bb,
         transparent: true,
-        opacity: 0.68,
+        opacity: 0.74,
       })
     );
     moon.position.set(-38, 42, -68);
     scene.add(moon);
+
+    const moonGlow = new THREE.Mesh(
+      new THREE.CircleGeometry(8.4, 40),
+      new THREE.MeshBasicMaterial({
+        color: 0xf6d7a3,
+        transparent: true,
+        opacity: 0.16,
+        depthWrite: false,
+      })
+    );
+    moonGlow.position.copy(moon.position);
+    moonGlow.position.z -= 0.2;
+    scene.add(moonGlow);
   }
 
   function createLighting() {
     const profile = getQualityProfile(worldState.graphicsQuality);
-    const hemi = new THREE.HemisphereLight(0xc3dbe1, 0x1c2b2c, 1.45);
+    const hemi = new THREE.HemisphereLight(0xc8e1e6, 0x1a2628, 1.6);
     scene.add(hemi);
 
-    keyLight = new THREE.DirectionalLight(0xffd9aa, 1.9);
-    keyLight.position.set(28, 40, 12);
+    keyLight = new THREE.DirectionalLight(0xffddb0, 1.85);
+    keyLight.position.set(24, 42, 18);
     if (!isTouchDevice && profile.desktopShadows) {
       keyLight.castShadow = true;
       keyLight.shadow.mapSize.set(profile.shadowMapSize, profile.shadowMapSize);
@@ -613,9 +627,17 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     }
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight(0x78afbf, 0.65);
-    fillLight.position.set(-22, 16, -26);
+    const fillLight = new THREE.DirectionalLight(0x7fb3c5, 0.78);
+    fillLight.position.set(-18, 18, -32);
     scene.add(fillLight);
+
+    const backLight = new THREE.DirectionalLight(0x6a9db0, 0.42);
+    backLight.position.set(0, 12, -46);
+    scene.add(backLight);
+
+    const avenueLight = new THREE.PointLight(0xdcb67a, 0.55, 70, 2.1);
+    avenueLight.position.set(0, 7.5, -8);
+    scene.add(avenueLight);
   }
 
   function createGround() {
@@ -671,10 +693,15 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       [-16, 13, 2.2],
       [8, 13, 2.1],
       [16, 13, 2.2],
+      [-6, -9, 2.2],
       [-7, -11, 2.2],
+      [-10, -14, 2.1],
       [-13, -11, 2.2],
+      [6, -9, 2.2],
       [7, -11, 2.2],
+      [10, -14, 2.1],
       [13, -11, 2.2],
+      [0, -32, 3.2],
     ];
     const transforms = stonePositions.map(([x, z, radius], index) => ({
       position: [x, terrainHeight(x, z) + 0.14, z],
@@ -703,6 +730,10 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       [4.6, -5],
       [-4.4, -17],
       [4.4, -17],
+      [-10.2, -9],
+      [10.2, -9],
+      [-15.8, -12],
+      [15.8, -12],
     ];
 
     const poleGeometry = getGeometry(
@@ -902,9 +933,45 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     addFloater(stars, 0, 0, 0, 0.008);
   }
 
+  function createAtmosphereMotes() {
+    const motesA = new Float32Array(120 * 3);
+    const motesB = new Float32Array(80 * 3);
+
+    fillMotePositions(motesA, 34, 1.8, 10.5);
+    fillMotePositions(motesB, 26, 2.2, 8.4);
+
+    const lowCloud = new THREE.Points(
+      createPointGeometry(motesA),
+      new THREE.PointsMaterial({
+        color: 0xf5d7a0,
+        size: 0.18,
+        transparent: true,
+        opacity: 0.22,
+        depthWrite: false,
+      })
+    );
+    lowCloud.position.set(0, 0.25, -3);
+    scene.add(lowCloud);
+    addFloater(lowCloud, 0.2, 0.22, 0.5, 0.012);
+
+    const coolCloud = new THREE.Points(
+      createPointGeometry(motesB),
+      new THREE.PointsMaterial({
+        color: 0xa7d7e1,
+        size: 0.16,
+        transparent: true,
+        opacity: 0.14,
+        depthWrite: false,
+      })
+    );
+    coolCloud.position.set(0, 0.45, -8);
+    scene.add(coolCloud);
+    addFloater(coolCloud, 0.12, 0.16, 1.2, -0.01);
+  }
+
   // Exhibit builders
   function createPortraitHall(exhibit) {
-    const group = createPlatform(exhibit.position, 4.1, 1.25);
+    const group = createPlatform(exhibit.position, 4.1, 1.25, exhibit.accent);
     addLabelSprite(group, exhibit.labelEyebrow ?? exhibit.zone, exhibit.title, exhibit.accent, 6.3);
 
     const frame = new THREE.Mesh(getGeometry("portrait-frame", () => new THREE.BoxGeometry(3.4, 4.4, 0.24)), materials.brass);
@@ -944,6 +1011,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     });
 
     addLandmarkLight(group, exhibit.accent, 1.6, 14, 4.8);
+    addBeaconColumn(group, exhibit.accent, 6.8, 0.22, 0.1);
   }
 
   function createProjectShrine(exhibit) {
@@ -952,7 +1020,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       (exhibit.featuredRank === 1 ? 1.16 : exhibit.featuredTag ? 1.08 : 1);
     const platformRadius = 3.45 * emphasisScale;
     const platformHeight = 1.12 * emphasisScale;
-    const group = createPlatform(exhibit.position, platformRadius, platformHeight);
+    const group = createPlatform(exhibit.position, platformRadius, platformHeight, exhibit.accent);
     addLabelSprite(
       group,
       exhibit.labelEyebrow ?? exhibit.zone,
@@ -995,6 +1063,18 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       addFloater(halo, 0.08, 1.35, emphasisScale, 0.22);
     }
 
+    addSilhouetteSpire(group, exhibit.accent, {
+      x: -2.1 * emphasisScale,
+      z: -1.5 * emphasisScale,
+      height: 4.8 * emphasisScale,
+      width: 0.34 * emphasisScale,
+    });
+    addSilhouetteSpire(group, exhibit.accent, {
+      x: 2.1 * emphasisScale,
+      z: -1.5 * emphasisScale,
+      height: 5.3 * emphasisScale,
+      width: 0.38 * emphasisScale,
+    });
     addFloater(orb, 0.18, 1.8, Math.random() * Math.PI * 2, 0.95);
     addFloater(ring, 0, 0, 0, 0.38);
     addCornerPillars(group, 2.2 * emphasisScale, 4.4 * emphasisScale, exhibit.accent);
@@ -1005,11 +1085,17 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       12 * emphasisScale,
       4.3 * emphasisScale
     );
+    addBeaconColumn(group, exhibit.accent, 7.8 * emphasisScale, 0.18 * emphasisScale, 0.08);
   }
 
   function createSkillGrove(exhibit) {
     const emphasisScale = exhibit.emphasisScale ?? 1;
-    const group = createPlatform(exhibit.position, 3.8 * emphasisScale, 1.18 * emphasisScale);
+    const group = createPlatform(
+      exhibit.position,
+      3.8 * emphasisScale,
+      1.18 * emphasisScale,
+      exhibit.accent
+    );
     addLabelSprite(
       group,
       exhibit.labelEyebrow ?? exhibit.zone,
@@ -1070,10 +1156,11 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       12 * emphasisScale,
       4.2 * emphasisScale
     );
+    addBeaconColumn(group, exhibit.accent, 6.4 * emphasisScale, 0.16 * emphasisScale, 0.06);
   }
 
   function createCloudSanctum(exhibit) {
-    const group = createPlatform(exhibit.position, 4.4, 1.2);
+    const group = createPlatform(exhibit.position, 4.4, 1.2, exhibit.accent);
     addLabelSprite(group, exhibit.labelEyebrow ?? exhibit.zone, exhibit.title, exhibit.accent, 6.2);
 
     const arch = new THREE.Mesh(
@@ -1095,11 +1182,23 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     group.add(halo);
     addFloater(halo, 0.15, 1.5, 1, 0.26);
 
+    addSilhouetteSpire(group, exhibit.accent, {
+      x: -2.4,
+      z: -0.9,
+      height: 4.6,
+      width: 0.28,
+    });
+    addSilhouetteSpire(group, exhibit.accent, {
+      x: 2.4,
+      z: -0.9,
+      height: 4.6,
+      width: 0.28,
+    });
     addLandmarkLight(group, exhibit.accent, 1.45, 14, 4.8);
   }
 
   function createPortalNexus(exhibit) {
-    const group = createPlatform(exhibit.position, 4.7, 1.25);
+    const group = createPlatform(exhibit.position, 4.7, 1.25, exhibit.accent);
     addLabelSprite(group, exhibit.labelEyebrow ?? exhibit.zone, exhibit.title, exhibit.accent, 6.5);
 
     const ring = new THREE.Mesh(
@@ -1140,11 +1239,24 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       addFloater(sigil, 0.12, 1.5 + index * 0.25, index, 0.8);
     });
 
+    addSilhouetteSpire(group, exhibit.accent, {
+      x: -2.8,
+      z: -1.1,
+      height: 5.1,
+      width: 0.32,
+    });
+    addSilhouetteSpire(group, exhibit.accent, {
+      x: 2.8,
+      z: -1.1,
+      height: 5.1,
+      width: 0.32,
+    });
     addLandmarkLight(group, exhibit.accent, 1.85, 16, 4.4);
+    addBeaconColumn(group, exhibit.accent, 7.1, 0.2, 0.08);
   }
 
   // Shared builder helpers
-  function createPlatform(position, radius, height) {
+  function createPlatform(position, radius, height, accent) {
     const group = new THREE.Group();
     group.position.set(position.x, terrainHeight(position.x, position.z), position.z);
 
@@ -1164,6 +1276,29 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     cap.position.y = height + 0.08;
     cap.receiveShadow = true;
     group.add(cap);
+
+    const ring = new THREE.Mesh(
+      getGeometry("platform-ring", () => new THREE.TorusGeometry(1, 0.055, 12, 72)),
+      createGlowMaterial(accent ?? "#f4dca9", 0.7)
+    );
+    ring.position.y = height + 0.2;
+    ring.rotation.x = Math.PI / 2;
+    ring.scale.set(radius * 0.96, radius * 0.96, 1);
+    group.add(ring);
+
+    const inlay = new THREE.Mesh(
+      getGeometry("platform-inlay", () => new THREE.CircleGeometry(1, 36)),
+      new THREE.MeshBasicMaterial({
+        color: accent ?? "#f4dca9",
+        transparent: true,
+        opacity: 0.08,
+        depthWrite: false,
+      })
+    );
+    inlay.position.y = height + 0.19;
+    inlay.rotation.x = -Math.PI / 2;
+    inlay.scale.setScalar(radius * 0.7);
+    group.add(inlay);
 
     scene.add(group);
     return group;
@@ -1249,7 +1384,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
       }, (textureOptions) => createLabelTexture(eyebrow, title, accent, textureOptions))
     );
     sprite.position.set(0, y, 0);
-    sprite.scale.set(6.4, 2.4, 1);
+    sprite.scale.set(7.2, 2.65, 1);
     group.add(sprite);
     addFloater(sprite, 0.12, 1.25, Math.random() * Math.PI * 2, 0);
   }
@@ -1270,6 +1405,42 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     light.position.set(0, y, 0);
     group.add(light);
     addPulse(light, intensity, intensity * 0.22, 1.5, worldState.pulsingLights.length * 0.8, "landmark");
+  }
+
+  function addBeaconColumn(group, color, height, radius, opacity) {
+    const beacon = new THREE.Mesh(
+      getGeometry("landmark-beacon-column", () => new THREE.CylinderGeometry(1, 1, 1, 16, 1, true)),
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+      })
+    );
+    beacon.position.y = height / 2 + 1.1;
+    beacon.scale.set(radius, height, radius);
+    group.add(beacon);
+  }
+
+  function addSilhouetteSpire(group, accent, options) {
+    const spire = new THREE.Mesh(
+      getGeometry("landmark-silhouette-spire", () => new THREE.ConeGeometry(1, 1, 6)),
+      materials.stone
+    );
+    spire.position.set(options.x, options.height / 2 + 1.1, options.z);
+    spire.scale.set(options.width, options.height, options.width);
+    spire.castShadow = !isTouchDevice;
+    group.add(spire);
+
+    const tip = new THREE.Mesh(
+      getGeometry("landmark-silhouette-tip", () => new THREE.OctahedronGeometry(0.14, 0)),
+      createGlowMaterial(accent, 0.95)
+    );
+    tip.position.set(options.x, options.height + 1.16, options.z);
+    group.add(tip);
+    addFloater(tip, 0.06, 1.5, options.x + options.z, 0.55);
   }
 
   function addFloater(object, amplitude, speed, phase, spinY) {
@@ -1317,6 +1488,35 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     const avenue = Math.exp(-Math.pow(x / 7, 2));
     const arrival = Math.exp(-(x * x + Math.pow(z - 24, 2)) / 180);
     const nexus = Math.exp(-(x * x + Math.pow(z + 28, 2)) / 210);
-    return Math.min(1, avenue * 0.82 + arrival * 0.55 + nexus * 0.7);
+    const featuredLeft = Math.exp(-(Math.pow(x + 12, 2) + Math.pow(z + 11, 2)) / 150);
+    const featuredRight = Math.exp(-(Math.pow(x - 12, 2) + Math.pow(z + 11, 2)) / 150);
+    const sideNorthLeft = Math.exp(-(Math.pow(x + 16, 2) + Math.pow(z - 13, 2)) / 140);
+    const sideNorthRight = Math.exp(-(Math.pow(x - 16, 2) + Math.pow(z - 13, 2)) / 140);
+    return Math.min(
+      1,
+      avenue * 0.82 +
+        arrival * 0.55 +
+        nexus * 0.7 +
+        featuredLeft * 0.36 +
+        featuredRight * 0.36 +
+        sideNorthLeft * 0.24 +
+        sideNorthRight * 0.24
+    );
+  }
+
+  function createPointGeometry(points) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(points, 3));
+    return geometry;
+  }
+
+  function fillMotePositions(points, spreadRadius, minHeight, maxHeight) {
+    for (let index = 0; index < points.length; index += 3) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.pow(Math.random(), 0.7) * spreadRadius;
+      points[index] = Math.cos(angle) * radius;
+      points[index + 1] = THREE.MathUtils.randFloat(minHeight, maxHeight);
+      points[index + 2] = Math.sin(angle) * radius - THREE.MathUtils.randFloat(0, 18);
+    }
   }
 }

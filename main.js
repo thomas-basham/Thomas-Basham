@@ -746,7 +746,8 @@ function updateNearestLandmark(reference) {
     updateZoneStatus(
       refs,
       portfolioContent.status.lostZoneName,
-      portfolioContent.status.lostZoneDistance
+      portfolioContent.status.lostZoneDistance,
+      null
     );
     return;
   }
@@ -759,7 +760,7 @@ function updateNearestLandmark(reference) {
       ? "You are within inspecting distance."
       : `${surfaceDistance.toFixed(1)} meters from ${nextReference.exhibit.title}.`;
 
-  updateZoneStatus(refs, nextReference.exhibit.zone, distanceText);
+  updateZoneStatus(refs, nextReference.exhibit.zone, distanceText, nextReference.exhibit.accent);
 }
 
 function updateDebugPanel(delta) {

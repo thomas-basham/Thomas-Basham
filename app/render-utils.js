@@ -18,42 +18,42 @@ const canvasTextureCache = new Map();
 export function createMaterialPalette() {
   return {
     stone: new THREE.MeshStandardMaterial({
-      color: 0x52655d,
-      roughness: 0.98,
+      color: 0x5a6966,
+      roughness: 0.96,
       metalness: 0.03,
     }),
     stoneDark: new THREE.MeshStandardMaterial({
-      color: 0x2d3935,
-      roughness: 1,
+      color: 0x26312f,
+      roughness: 0.98,
       metalness: 0.02,
     }),
     brass: new THREE.MeshStandardMaterial({
-      color: 0xb99153,
-      roughness: 0.32,
-      metalness: 0.72,
+      color: 0xc3a46a,
+      roughness: 0.38,
+      metalness: 0.66,
     }),
     slate: new THREE.MeshStandardMaterial({
-      color: 0x41515b,
-      roughness: 0.76,
-      metalness: 0.16,
+      color: 0x42515a,
+      roughness: 0.8,
+      metalness: 0.12,
     }),
     glass: new THREE.MeshStandardMaterial({
-      color: 0x9dc5c8,
-      roughness: 0.16,
-      metalness: 0.2,
+      color: 0xa7cacf,
+      roughness: 0.14,
+      metalness: 0.16,
       transparent: true,
-      opacity: 0.82,
-      emissive: new THREE.Color(0x25484e),
-      emissiveIntensity: 0.8,
+      opacity: 0.78,
+      emissive: new THREE.Color(0x274b52),
+      emissiveIntensity: 0.65,
     }),
     bark: new THREE.MeshStandardMaterial({
-      color: 0x5b4430,
-      roughness: 1,
+      color: 0x5d4533,
+      roughness: 0.96,
       metalness: 0.02,
     }),
     foliage: new THREE.MeshStandardMaterial({
-      color: 0x5f8161,
-      roughness: 1,
+      color: 0x628466,
+      roughness: 0.98,
       metalness: 0.02,
     }),
   };
@@ -74,8 +74,8 @@ export function createGlowMaterial(color, intensity) {
         color,
         emissive: new THREE.Color(color),
         emissiveIntensity: intensity,
-        roughness: 0.3,
-        metalness: 0.15,
+        roughness: 0.24,
+        metalness: 0.08,
       })
     );
   }
@@ -92,51 +92,64 @@ export function createProjectTexture(exhibit, options) {
     cacheKey: `project:${exhibit.id}:${exhibit.title}:${exhibit.kicker}:${exhibit.accent}:${exhibit.glyph ?? ""}`,
     draw: (ctx, width, height) => {
       const gradient = ctx.createLinearGradient(0, 0, width, height);
-      gradient.addColorStop(0, "rgba(9, 22, 26, 0.95)");
-      gradient.addColorStop(1, "rgba(19, 42, 46, 0.9)");
+      gradient.addColorStop(0, "rgba(9, 18, 24, 0.97)");
+      gradient.addColorStop(1, "rgba(18, 37, 44, 0.93)");
       ctx.fillStyle = gradient;
       roundRect(ctx, 32, 32, width - 64, height - 64, 54);
       ctx.fill();
 
-      ctx.strokeStyle = exhibit.accent;
-      ctx.lineWidth = 6;
+      ctx.strokeStyle = colorToRgba(exhibit.accent, 0.9);
+      ctx.lineWidth = 5;
       roundRect(ctx, 52, 52, width - 104, height - 104, 42);
       ctx.stroke();
 
-      ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
+      const innerGlow = ctx.createRadialGradient(width / 2, 330, 40, width / 2, 330, 300);
+      innerGlow.addColorStop(0, colorToRgba(exhibit.accent, 0.18));
+      innerGlow.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = innerGlow;
       ctx.beginPath();
-      ctx.arc(width / 2, 280, 180, 0, Math.PI * 2);
+      ctx.arc(width / 2, 330, 250, 0, Math.PI * 2);
       ctx.fill();
 
       if (exhibit.featuredTag) {
-        ctx.fillStyle = "rgba(244, 220, 169, 0.12)";
-        roundRect(ctx, width / 2 - 190, 92, 380, 70, 35);
+        ctx.fillStyle = "rgba(244, 220, 169, 0.1)";
+        roundRect(ctx, width / 2 - 192, 92, 384, 66, 33);
         ctx.fill();
         ctx.strokeStyle = colorToRgba(exhibit.accent, 0.8);
-        ctx.lineWidth = 3;
-        roundRect(ctx, width / 2 - 190, 92, 380, 70, 35);
+        ctx.lineWidth = 2.5;
+        roundRect(ctx, width / 2 - 192, 92, 384, 66, 33);
         ctx.stroke();
         ctx.fillStyle = "#f4dca9";
-        ctx.font = "700 28px Manrope, sans-serif";
-        ctx.fillText(exhibit.featuredTag.toUpperCase(), width / 2, 136);
+        ctx.font = "700 26px Manrope, sans-serif";
+        ctx.fillText(exhibit.featuredTag.toUpperCase(), width / 2, 133);
       }
 
-      ctx.fillStyle = exhibit.accent;
-      ctx.font = "700 170px Cinzel, Georgia, serif";
+      ctx.fillStyle = colorToRgba(exhibit.accent, 0.16);
+      ctx.font = "700 158px Cinzel, Georgia, serif";
       ctx.textAlign = "center";
-      ctx.fillText(exhibit.glyph, width / 2, 335);
+      ctx.fillText(exhibit.glyph, width / 2, 374);
+
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(150, 694);
+      ctx.lineTo(width - 150, 694);
+      ctx.stroke();
 
       ctx.fillStyle = "#f8f0dd";
-      ctx.font = "700 82px Cinzel, Georgia, serif";
-      wrapText(ctx, exhibit.title, width / 2, 560, width - 180, 92);
+      ctx.font = "700 78px Cinzel, Georgia, serif";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
+      ctx.shadowBlur = 22;
+      wrapText(ctx, exhibit.title, width / 2, 538, width - 170, 88);
+      ctx.shadowBlur = 0;
 
       ctx.fillStyle = "rgba(244, 220, 169, 0.75)";
-      ctx.font = "700 30px Manrope, sans-serif";
-      ctx.fillText(exhibit.zone.toUpperCase(), width / 2, 685);
+      ctx.font = "700 28px Manrope, sans-serif";
+      ctx.fillText(exhibit.zone.toUpperCase(), width / 2, 650);
 
       ctx.fillStyle = "rgba(247, 241, 227, 0.86)";
-      ctx.font = "600 38px Manrope, sans-serif";
-      wrapText(ctx, exhibit.kicker, width / 2, 835, width - 210, 52);
+      ctx.font = "600 36px Manrope, sans-serif";
+      wrapText(ctx, exhibit.kicker, width / 2, 802, width - 210, 50);
     },
   });
 }
@@ -171,32 +184,49 @@ export function createPortalTexture(color, options) {
 
 export function createLabelTexture(eyebrow, title, accent, options) {
   return createCanvasTexture({
-    width: 900,
-    height: 340,
+    width: 980,
+    height: 360,
     quality: options.quality,
     maxAnisotropy: options.maxAnisotropy,
     cacheKey: `label:${eyebrow}:${title}:${accent}`,
     draw: (ctx, width, height) => {
       const gradient = ctx.createLinearGradient(0, 0, width, height);
-      gradient.addColorStop(0, "rgba(10, 20, 25, 0.8)");
-      gradient.addColorStop(1, "rgba(10, 20, 25, 0.15)");
+      gradient.addColorStop(0, "rgba(8, 18, 24, 0.92)");
+      gradient.addColorStop(1, "rgba(9, 20, 25, 0.28)");
       ctx.fillStyle = gradient;
-      roundRect(ctx, 28, 28, width - 56, height - 56, 46);
+      roundRect(ctx, 28, 28, width - 56, height - 56, 50);
       ctx.fill();
 
-      ctx.strokeStyle = colorToRgba(accent, 0.8);
-      ctx.lineWidth = 4;
+      const topGlow = ctx.createLinearGradient(0, 50, 0, 180);
+      topGlow.addColorStop(0, colorToRgba(accent, 0.18));
+      topGlow.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = topGlow;
+      roundRect(ctx, 44, 44, width - 88, 124, 34);
+      ctx.fill();
+
+      ctx.strokeStyle = colorToRgba(accent, 0.84);
+      ctx.lineWidth = 3.5;
       roundRect(ctx, 44, 44, width - 88, height - 88, 34);
       ctx.stroke();
 
       ctx.fillStyle = "rgba(244, 220, 169, 0.9)";
       ctx.textAlign = "center";
-      ctx.font = "700 28px Manrope, sans-serif";
-      ctx.fillText(eyebrow.toUpperCase(), width / 2, 110);
+      ctx.font = "700 26px Manrope, sans-serif";
+      ctx.fillText(eyebrow.toUpperCase(), width / 2, 108);
+
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(118, 138);
+      ctx.lineTo(width - 118, 138);
+      ctx.stroke();
 
       ctx.fillStyle = "#fbf5e6";
-      ctx.font = "700 64px Cinzel, Georgia, serif";
-      wrapText(ctx, title, width / 2, 210, width - 120, 68);
+      ctx.font = "700 66px Cinzel, Georgia, serif";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+      ctx.shadowBlur = 18;
+      wrapText(ctx, title, width / 2, 230, width - 120, 70);
+      ctx.shadowBlur = 0;
     },
   });
 }
@@ -210,7 +240,7 @@ export function createSigilTexture(text, accent, options) {
     cacheKey: `sigil:${text}:${accent}`,
     draw: (ctx, width, height) => {
       const center = width / 2;
-      ctx.fillStyle = "rgba(8, 20, 24, 0.75)";
+      ctx.fillStyle = "rgba(8, 20, 24, 0.78)";
       ctx.beginPath();
       ctx.arc(center, center, 205, 0, Math.PI * 2);
       ctx.fill();
@@ -228,9 +258,12 @@ export function createSigilTexture(text, accent, options) {
       ctx.stroke();
 
       ctx.fillStyle = accent;
-      ctx.font = "700 120px Cinzel, Georgia, serif";
+      ctx.font = "700 112px Cinzel, Georgia, serif";
       ctx.textAlign = "center";
-      ctx.fillText(text, center, 295);
+      ctx.shadowColor = "rgba(0, 0, 0, 0.28)";
+      ctx.shadowBlur = 14;
+      ctx.fillText(text, center, 292);
+      ctx.shadowBlur = 0;
     },
   });
 }

@@ -130,7 +130,6 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     exhibits,
     buildStaticScene,
     buildExhibits,
-    canOccupy,
     getExhibitSurfaceDistance,
     getNearestExhibit,
     resolvePlayerMotion,
@@ -259,21 +258,6 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     const profile = getQualityProfile(graphicsQuality);
     const cap = isTouchDevice ? profile.mobilePixelRatio : profile.desktopPixelRatio;
     return Math.min(window.devicePixelRatio, cap);
-  }
-
-  function canOccupy(x, z) {
-    if (Math.hypot(x, z) > WORLD_CONFIG.worldRadius) {
-      return false;
-    }
-
-    for (let index = 0; index < worldState.obstacleFields.length; index += 1) {
-      const field = worldState.obstacleFields[index];
-      if (Math.hypot(x - field.x, z - field.z) < field.radius) {
-        return false;
-      }
-    }
-
-    return true;
   }
 
   function resolvePlayerMotion(position, stepX, stepZ, radius) {

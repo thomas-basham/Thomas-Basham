@@ -20,6 +20,11 @@ function createActionElement(action, links, handlers = {}) {
     const handler = handlers[action.id];
     if (handler) {
       element.addEventListener("click", handler);
+    } else if (action.type === "button") {
+      element.disabled = true;
+      warnRecoverable(
+        `Unable to render button action "${action.label}" because handler "${action.id}" is not registered.`
+      );
     }
   } else {
     element.href = resolvedHref;
@@ -130,7 +135,7 @@ function createFallbackSection(section, content, handlers = {}) {
 
   const grid = document.createElement("div");
   grid.className = `fallback-section__grid fallback-section__grid--${section.layout}`;
-  section.cards.forEach((card) => {
+  (section.cards ?? []).forEach((card) => {
     grid.appendChild(createFallbackCard(card, content, handlers));
   });
 
@@ -140,7 +145,7 @@ function createFallbackSection(section, content, handlers = {}) {
 
 function renderIntroCards(container, cards) {
   container.innerHTML = "";
-  cards.forEach((card) => {
+  (cards ?? []).forEach((card) => {
     const cardElement = document.createElement("div");
     const title = document.createElement("h3");
     const body = document.createElement("p");
@@ -153,20 +158,32 @@ function renderIntroCards(container, cards) {
 }
 
 function renderChoiceGroup(container, options, groupName, onSelect) {
+  if (!container) {
+    return;
+  }
+
   container.innerHTML = "";
-  options.forEach((option) => {
+  (options ?? []).forEach((option) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "setting-choice";
     button.dataset.group = groupName;
     button.dataset.value = option.id;
     button.textContent = option.label;
-    button.addEventListener("click", () => onSelect(option.id));
+    if (typeof onSelect === "function") {
+      button.addEventListener("click", () => onSelect(option.id));
+    } else {
+      button.disabled = true;
+    }
     container.appendChild(button);
   });
 }
 
 function updateChoiceGroup(container, selectedValue) {
+  if (!container) {
+    return;
+  }
+
   container.querySelectorAll(".setting-choice").forEach((button) => {
     const isSelected = button.dataset.value === selectedValue;
     button.classList.toggle("is-selected", isSelected);
@@ -336,7 +353,7 @@ export function renderFallbackPortfolio(refs, content, fallbackContent, handlers
   );
 
   refs.fallbackSections.innerHTML = "";
-  fallbackContent.sections.forEach((section) => {
+  (fallbackContent.sections ?? []).forEach((section) => {
     refs.fallbackSections.appendChild(createFallbackSection(section, content, handlers));
   });
 }
@@ -400,13 +417,24 @@ export function updateZoneStatus(refs, zoneName, distanceText, accent = null) {
 }
 
 export function updateUtilityState(refs, content, options) {
-  const { isTouchDevice, pointerLocked, settingsOpen, fallbackOpen, worldAvailable, introOpen } = options;
+  const {
+    isTouchDevice,
+    pointerLocked,
+    settingsOpen,
+    fallbackOpen,
+    worldAvailable,
+    introOpen,
+    pointerHintOverride,
+  } = options;
   const controlsDisabled = !worldAvailable || fallbackOpen || introOpen;
-  const hint = isTouchDevice
+  const baseHint = isTouchDevice
     ? content.utility.mobileHint
     : pointerLocked
       ? content.utility.pointerLockedHint
       : content.utility.pointerUnlockedHint;
+  const hint = !isTouchDevice && !controlsDisabled && pointerHintOverride
+    ? pointerHintOverride
+    : baseHint;
   refs.portfolioToggle.textContent =
     fallbackOpen && worldAvailable
       ? content.fallbackMode.closeLabel

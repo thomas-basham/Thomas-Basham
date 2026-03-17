@@ -83,6 +83,15 @@ function prepareExhibit(exhibit, links, index) {
     return null;
   }
 
+  const positionX = normalizeFiniteNumber(exhibit.position?.x);
+  const positionZ = normalizeFiniteNumber(exhibit.position?.z);
+  if (positionX === null || positionZ === null) {
+    warnRecoverable(
+      `Skipping exhibit "${id}" because position.x and position.z must be finite numbers.`
+    );
+    return null;
+  }
+
   if (!STARTUP_VALIDATION_CONFIG.supportedExhibitTypes.includes(exhibit.type)) {
     warnRecoverable(
       `Skipping exhibit "${id}" because type "${exhibit.type}" is not supported by the world renderer.`
@@ -98,10 +107,12 @@ function prepareExhibit(exhibit, links, index) {
   }
 
   const colliderRadius =
-    typeof exhibit.colliderRadius === "number" && Number.isFinite(exhibit.colliderRadius)
-      ? exhibit.colliderRadius
-      : STARTUP_VALIDATION_CONFIG.defaultColliderRadius;
-  if (colliderRadius === STARTUP_VALIDATION_CONFIG.defaultColliderRadius && exhibit.colliderRadius !== colliderRadius) {
+    normalizeFiniteNumber(exhibit.colliderRadius) ??
+    STARTUP_VALIDATION_CONFIG.defaultColliderRadius;
+  if (
+    colliderRadius === STARTUP_VALIDATION_CONFIG.defaultColliderRadius &&
+    normalizeFiniteNumber(exhibit.colliderRadius) === null
+  ) {
     warnRecoverable(
       `Exhibit "${id}" is missing a valid collider radius. Using ${STARTUP_VALIDATION_CONFIG.defaultColliderRadius}.`
     );
@@ -113,9 +124,13 @@ function prepareExhibit(exhibit, links, index) {
     colliderRadius,
     bullets: sanitizeStringList(exhibit.bullets),
     actions: sanitizeActionList(exhibit.actions, links, `exhibit:${id}`),
+    sigils: sanitizeStringList(exhibit.sigils).slice(0, 6),
+    glyph: normalizeExhibitGlyph(exhibit),
+    featuredRank: normalizeFiniteNumber(exhibit.featuredRank) ?? undefined,
+    emphasisScale: normalizePositiveFiniteNumber(exhibit.emphasisScale),
     position: {
-      x: Number(exhibit.position.x),
-      z: Number(exhibit.position.z),
+      x: positionX,
+      z: positionZ,
     },
   };
 }
@@ -186,6 +201,49 @@ function sanitizeStringList(values) {
   }
 
   return values.filter(hasNonEmptyString);
+}
+
+function normalizeExhibitGlyph(exhibit) {
+  if (hasNonEmptyString(exhibit.glyph)) {
+    return exhibit.glyph.trim().slice(0, 6);
+  }
+
+  if (exhibit.type !== "project") {
+    return undefined;
+  }
+
+  const fallbackGlyph = String(exhibit.title)
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("");
+
+  if (fallbackGlyph) {
+    warnRecoverable(
+      `Project exhibit "${exhibit.id}" is missing a glyph. Using "${fallbackGlyph}".`
+    );
+  }
+
+  return fallbackGlyph || "PX";
+}
+
+function normalizeFiniteNumber(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function normalizePositiveFiniteNumber(value) {
+  const normalized = normalizeFiniteNumber(value);
+  return normalized !== null && normalized > 0 ? normalized : undefined;
 }
 
 function readPath(value, path) {

@@ -40,6 +40,8 @@ export const portfolioContent = {
       "Mouse-look is active. Press Esc or choose Unlock Mouse-Look to return to the standard cursor.",
     pointerUnlockedHint:
       "Choose Enable Mouse-Look to look around with the mouse. Press Esc at any time to release it.",
+    pointerErrorHint:
+      "Mouse-look was blocked by the browser. Click the canvas or use Enable Mouse-Look again to retry.",
     mobileHint: "Touch look stays active. Adjust sensitivity or motion below.",
   },
   settings: {

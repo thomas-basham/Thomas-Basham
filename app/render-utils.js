@@ -77,12 +77,7 @@ export function loadTexture(
   textureLoader.load(
     path,
     (loadedTexture) => {
-      texture.image = loadedTexture.image;
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.flipY = loadedTexture.flipY;
-      texture.wrapS = loadedTexture.wrapS;
-      texture.wrapT = loadedTexture.wrapT;
-      texture.needsUpdate = true;
+      applyLoadedTexture(texture, loadedTexture);
       applyTextureQuality(texture, maxAnisotropy, quality);
     },
     undefined,
@@ -379,6 +374,28 @@ function createFallbackTexture(label, maxAnisotropy, quality) {
   }
 
   return fallbackTextureCache.get(cacheKey);
+}
+
+function applyLoadedTexture(targetTexture, loadedTexture) {
+  targetTexture.image = loadedTexture.image;
+  targetTexture.source = loadedTexture.source;
+  targetTexture.colorSpace = loadedTexture.colorSpace;
+  targetTexture.flipY = loadedTexture.flipY;
+  targetTexture.wrapS = loadedTexture.wrapS;
+  targetTexture.wrapT = loadedTexture.wrapT;
+  targetTexture.magFilter = loadedTexture.magFilter;
+  targetTexture.minFilter = loadedTexture.minFilter;
+  targetTexture.generateMipmaps = loadedTexture.generateMipmaps;
+  targetTexture.mapping = loadedTexture.mapping;
+  targetTexture.format = loadedTexture.format;
+  targetTexture.type = loadedTexture.type;
+  targetTexture.premultiplyAlpha = loadedTexture.premultiplyAlpha;
+  targetTexture.unpackAlignment = loadedTexture.unpackAlignment;
+  targetTexture.offset.copy(loadedTexture.offset);
+  targetTexture.repeat.copy(loadedTexture.repeat);
+  targetTexture.center.copy(loadedTexture.center);
+  targetTexture.rotation = loadedTexture.rotation;
+  targetTexture.needsUpdate = true;
 }
 
 function colorToRgba(color, alpha) {

@@ -94,6 +94,7 @@ const appState = {
   pendingResizeFrame: 0,
   renderLoopActive: false,
   lastFocusedElement: null,
+  pointerHintOverride: null,
 };
 const INTERACTION_REFRESH_INTERVAL = isTouchDevice
   ? RUNTIME_CONFIG.interactionRefreshInterval.touch
@@ -225,6 +226,7 @@ function syncAppShell() {
     fallbackOpen: appState.fallbackOpen,
     introOpen: appState.introOpen,
     worldAvailable,
+    pointerHintOverride: appState.pointerHintOverride,
   });
   updateDocumentMetadata();
 
@@ -331,6 +333,10 @@ function getActivePanelElement() {
 }
 
 function focusPanel(panel, preferredSelectors = []) {
+  if (!(panel instanceof HTMLElement)) {
+    return;
+  }
+
   const selectors = Array.isArray(preferredSelectors)
     ? preferredSelectors
     : [preferredSelectors];
@@ -467,10 +473,12 @@ function bindEventListeners() {
   refs.canvas.addEventListener("pointercancel", endTouchLook);
   refs.canvas.addEventListener("webglcontextlost", handleWebglContextLost, { passive: false });
   document.addEventListener("pointerlockchange", handlePointerLockChange);
+  document.addEventListener("pointerlockerror", handlePointerLockError);
   document.addEventListener("mousemove", handleDocumentMouseMove);
   document.addEventListener("keydown", handleDocumentKeyDown);
   document.addEventListener("keyup", handleDocumentKeyUp);
   window.addEventListener("blur", clearMovement);
+  window.addEventListener("pagehide", clearMovement);
   window.addEventListener("resize", onResize);
   window.visualViewport?.addEventListener("resize", onResize);
 
@@ -1152,6 +1160,7 @@ function handlePointerLockChange() {
   refs.body.classList.toggle("is-locked", appState.pointerLocked);
 
   if (appState.pointerLocked) {
+    appState.pointerHintOverride = null;
     appState.settingsOpen = false;
   } else {
     clearMovement();
@@ -1159,6 +1168,10 @@ function handlePointerLockChange() {
 
   syncAppShell();
   flagInteractionRefresh();
+}
+
+function handlePointerLockError() {
+  handlePointerLockFailure();
 }
 
 function handleWebglContextLost(event) {
@@ -1302,7 +1315,13 @@ function handleControlPointerDown(event) {
 
   event.preventDefault();
   const button = event.currentTarget;
+  if (!(button instanceof HTMLElement)) {
+    return;
+  }
   const { control } = button.dataset;
+  if (!(control in controls)) {
+    return;
+  }
   controls[control] = true;
   button.classList.add("is-active");
 }
@@ -1310,7 +1329,13 @@ function handleControlPointerDown(event) {
 function handleControlPointerUp(event) {
   event.preventDefault();
   const button = event.currentTarget;
+  if (!(button instanceof HTMLElement)) {
+    return;
+  }
   const { control } = button.dataset;
+  if (!(control in controls)) {
+    return;
+  }
   controls[control] = false;
   button.classList.remove("is-active");
 }
@@ -1329,7 +1354,27 @@ function requestPointerLock() {
     return;
   }
 
-  refs.canvas.requestPointerLock();
+  if (appState.pointerHintOverride) {
+    appState.pointerHintOverride = null;
+    syncAppShell();
+  }
+
+  try {
+    const maybePromise = refs.canvas.requestPointerLock();
+    if (typeof maybePromise?.catch === "function") {
+      maybePromise.catch((error) => {
+        handlePointerLockFailure(error);
+      });
+    }
+  } catch (error) {
+    handlePointerLockFailure(error);
+  }
+}
+
+function handlePointerLockFailure(error) {
+  appState.pointerHintOverride = portfolioContent.utility.pointerErrorHint;
+  syncAppShell();
+  warnRecoverable("Mouse-look request was blocked or failed.", error);
 }
 
 function clearMovement() {

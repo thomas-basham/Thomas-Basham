@@ -1,17 +1,28 @@
+import { warnRecoverable } from "./validation.js";
+
 function createActionElement(action, links, handlers = {}) {
-  const element = document.createElement(action.type === "button" ? "button" : "a");
+  const resolvedHref =
+    action.type === "link" ? links?.[action.hrefKey] : null;
+  const renderAsButton = action.type === "button" || !resolvedHref;
+  const element = document.createElement(renderAsButton ? "button" : "a");
   element.className = `action-button${
     action.variant === "primary" ? " action-button--primary" : ""
   }`;
 
-  if (action.type === "button") {
+  if (renderAsButton) {
     element.type = "button";
+    if (action.type === "link" && !resolvedHref) {
+      element.disabled = true;
+      warnRecoverable(
+        `Unable to render link action "${action.label}" because hrefKey "${action.hrefKey}" is missing.`
+      );
+    }
     const handler = handlers[action.id];
     if (handler) {
       element.addEventListener("click", handler);
     }
   } else {
-    element.href = links[action.hrefKey];
+    element.href = resolvedHref;
     if (!element.href.startsWith("mailto:")) {
       element.target = "_blank";
       element.rel = "noreferrer";
@@ -23,13 +34,21 @@ function createActionElement(action, links, handlers = {}) {
 }
 
 function renderActionList(container, actions, links, handlers) {
+  if (!container) {
+    return;
+  }
+
   container.innerHTML = "";
-  actions.forEach((action) => {
+  (actions ?? []).forEach((action) => {
     container.appendChild(createActionElement(action, links, handlers));
   });
 }
 
 function setHiddenState(element, hidden) {
+  if (!element) {
+    return;
+  }
+
   element.classList.toggle("hidden", hidden);
   element.setAttribute("aria-hidden", String(hidden));
 }

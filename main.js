@@ -1,7 +1,12 @@
 import {
   buildFallbackPortfolioContent,
-  portfolioContent,
+  portfolioContent as basePortfolioContent,
 } from "./app/content.js";
+import {
+  INTERACTION_CONFIG,
+  MOVEMENT_CONFIG,
+  RUNTIME_CONFIG,
+} from "./app/config.js";
 import {
   getDomRefs,
   hideInspectPanel,
@@ -21,9 +26,15 @@ import {
   saveExperienceSettings,
 } from "./app/settings.js";
 import { THREE } from "./app/three.js";
+import { runStartupValidation, warnRecoverable } from "./app/validation.js";
 import { createWorld } from "./app/world.js";
 
 const refs = getDomRefs();
+const startupValidation = runStartupValidation({
+  refs,
+  content: basePortfolioContent,
+});
+const portfolioContent = startupValidation.content;
 const metadataRefs = {
   metaDescription: document.getElementById("meta-description"),
   canonicalUrl: document.getElementById("canonical-url"),
@@ -84,8 +95,10 @@ const appState = {
   renderLoopActive: false,
   lastFocusedElement: null,
 };
-const INTERACTION_REFRESH_INTERVAL = isTouchDevice ? 0.12 : 0.08;
-const DEBUG_SAMPLE_INTERVAL = 0.25;
+const INTERACTION_REFRESH_INTERVAL = isTouchDevice
+  ? RUNTIME_CONFIG.interactionRefreshInterval.touch
+  : RUNTIME_CONFIG.interactionRefreshInterval.desktop;
+const DEBUG_SAMPLE_INTERVAL = RUNTIME_CONFIG.debugSampleInterval;
 
 const moveVelocity = new THREE.Vector3();
 const worldUp = new THREE.Vector3(0, 1, 0);
@@ -105,6 +118,11 @@ initialize();
 
 function initialize() {
   if (appState.initialized) {
+    return;
+  }
+
+  if (!startupValidation.canInitialize) {
+    warnRecoverable("Startup halted because required DOM elements are missing.");
     return;
   }
 
@@ -178,7 +196,7 @@ function attemptWorldInitialization() {
     });
   } catch (error) {
     appState.webglUnavailable = true;
-    console.error("Three.js portfolio unavailable. Falling back to the 2D portfolio mode.", error);
+    warnRecoverable("Three.js portfolio unavailable. Falling back to the 2D portfolio mode.", error);
   }
 }
 
@@ -469,7 +487,7 @@ function animate() {
     return;
   }
 
-  const delta = Math.min(world.clock.getDelta(), 0.05);
+  const delta = Math.min(world.clock.getDelta(), RUNTIME_CONFIG.maxFrameDelta);
   const elapsed = world.clock.elapsedTime;
 
   updatePlayer(delta);
@@ -504,7 +522,12 @@ function updatePlayer(delta) {
 
   if (appState.introOpen || appState.fallbackOpen || appState.activeExhibit || appState.settingsOpen) {
     moveVelocity.multiplyScalar(Math.exp(-6 * delta));
-    appState.sprintBlend = THREE.MathUtils.damp(appState.sprintBlend, 0, 6, delta);
+    appState.sprintBlend = THREE.MathUtils.damp(
+      appState.sprintBlend,
+      0,
+      MOVEMENT_CONFIG.sprintReleaseDamping,
+      delta
+    );
     updateCameraEffects(delta, 0, 0);
     return;
   }
@@ -531,13 +554,19 @@ function updatePlayer(delta) {
   appState.sprintBlend = THREE.MathUtils.damp(
     appState.sprintBlend,
     sprintRequested ? 1 : 0,
-    5.4,
+    MOVEMENT_CONFIG.sprintBlendDamping,
     delta
   );
 
-  const targetSpeed = THREE.MathUtils.lerp(5.2, 7.8, appState.sprintBlend);
+  const targetSpeed = THREE.MathUtils.lerp(
+    MOVEMENT_CONFIG.walkSpeed,
+    MOVEMENT_CONFIG.sprintSpeed,
+    appState.sprintBlend
+  );
   const desiredVelocity = movementDirection.multiplyScalar(targetSpeed);
-  const damping = hasMovementInput ? 10.5 : 7.2;
+  const damping = hasMovementInput
+    ? MOVEMENT_CONFIG.activeVelocityDamping
+    : MOVEMENT_CONFIG.idleVelocityDamping;
   moveVelocity.lerp(desiredVelocity, 1 - Math.exp(-damping * delta));
 
   const resolvedPosition = world.resolvePlayerMotion(
@@ -552,7 +581,7 @@ function updatePlayer(delta) {
   world.playerRig.position.y = THREE.MathUtils.damp(
     world.playerRig.position.y,
     resolvedPosition.y,
-    10,
+    MOVEMENT_CONFIG.groundFollowDamping,
     delta
   );
 
@@ -561,34 +590,73 @@ function updatePlayer(delta) {
 
 function updateCameraEffects(delta, speed, strafeInput) {
   const motionEnabled = !experienceSettings.reducedMotion;
-  const speedFactor = THREE.MathUtils.clamp(speed / 7.8, 0, 1);
-  const strideSpeed = THREE.MathUtils.lerp(5.4, 8.8, appState.sprintBlend);
+  const speedFactor = THREE.MathUtils.clamp(speed / MOVEMENT_CONFIG.sprintSpeed, 0, 1);
+  const strideSpeed = THREE.MathUtils.lerp(
+    MOVEMENT_CONFIG.camera.strideWalkSpeed,
+    MOVEMENT_CONFIG.camera.strideSprintSpeed,
+    appState.sprintBlend
+  );
 
-  if (speedFactor > 0.04) {
-    appState.bobTimer += delta * strideSpeed * (0.55 + speedFactor * 0.45);
+  if (speedFactor > MOVEMENT_CONFIG.camera.bobStartThreshold) {
+    appState.bobTimer +=
+      delta *
+      strideSpeed *
+      (MOVEMENT_CONFIG.camera.stridePhaseScale + speedFactor * (1 - MOVEMENT_CONFIG.camera.stridePhaseScale));
   }
 
   const bobStrength = motionEnabled ? speedFactor : 0;
   const targetBobX =
-    Math.sin(appState.bobTimer * 0.5) * (0.014 + appState.sprintBlend * 0.006) * bobStrength;
+    Math.sin(appState.bobTimer * 0.5) *
+    (MOVEMENT_CONFIG.camera.bobXAmplitude +
+      appState.sprintBlend * MOVEMENT_CONFIG.camera.bobXSprintBoost) *
+    bobStrength;
   const targetBobY =
     Math.abs(Math.sin(appState.bobTimer)) *
-    (0.024 + appState.sprintBlend * 0.008) *
+    (MOVEMENT_CONFIG.camera.bobYAmplitude +
+      appState.sprintBlend * MOVEMENT_CONFIG.camera.bobYSprintBoost) *
     bobStrength;
   const targetRoll = motionEnabled
-    ? THREE.MathUtils.clamp((-strafeInput * 0.016 - appState.sprintBlend * 0.004) * speedFactor, -0.024, 0.024)
+    ? THREE.MathUtils.clamp(
+        (-strafeInput * MOVEMENT_CONFIG.camera.strafeRollFactor -
+          appState.sprintBlend * MOVEMENT_CONFIG.camera.sprintRollFactor) *
+          speedFactor,
+        -MOVEMENT_CONFIG.camera.maxRoll,
+        MOVEMENT_CONFIG.camera.maxRoll
+      )
     : 0;
 
-  appState.cameraBobX = THREE.MathUtils.damp(appState.cameraBobX, targetBobX, 12, delta);
-  appState.cameraBobY = THREE.MathUtils.damp(appState.cameraBobY, targetBobY, 12, delta);
-  appState.cameraRoll = THREE.MathUtils.damp(appState.cameraRoll, targetRoll, 9, delta);
+  appState.cameraBobX = THREE.MathUtils.damp(
+    appState.cameraBobX,
+    targetBobX,
+    MOVEMENT_CONFIG.camera.bobXDamping,
+    delta
+  );
+  appState.cameraBobY = THREE.MathUtils.damp(
+    appState.cameraBobY,
+    targetBobY,
+    MOVEMENT_CONFIG.camera.bobYDamping,
+    delta
+  );
+  appState.cameraRoll = THREE.MathUtils.damp(
+    appState.cameraRoll,
+    targetRoll,
+    MOVEMENT_CONFIG.camera.rollDamping,
+    delta
+  );
 
   world.camera.position.x = appState.cameraBobX;
   world.camera.position.y = world.config.eyeHeight + appState.cameraBobY;
   world.camera.rotation.z = appState.cameraRoll;
 
-  const targetFov = world.config.baseFov + (motionEnabled ? appState.sprintBlend * 1.2 : 0);
-  const nextFov = THREE.MathUtils.damp(world.camera.fov, targetFov, 6, delta);
+  const targetFov =
+    world.config.baseFov +
+    (motionEnabled ? appState.sprintBlend * MOVEMENT_CONFIG.camera.sprintFovBoost : 0);
+  const nextFov = THREE.MathUtils.damp(
+    world.camera.fov,
+    targetFov,
+    MOVEMENT_CONFIG.camera.fovDamping,
+    delta
+  );
   if (Math.abs(nextFov - world.camera.fov) > 0.01) {
     world.camera.fov = nextFov;
     world.camera.updateProjectionMatrix();
@@ -609,15 +677,15 @@ function applyLookButtons(delta) {
   if (controls.lookUp) {
     world.pitchRig.rotation.x = THREE.MathUtils.clamp(
       world.pitchRig.rotation.x + world.config.lookSpeed * sensitivityProfile.buttonLook * delta,
-      -1.05,
-      1.05
+      -MOVEMENT_CONFIG.lookClamp,
+      MOVEMENT_CONFIG.lookClamp
     );
   }
   if (controls.lookDown) {
     world.pitchRig.rotation.x = THREE.MathUtils.clamp(
       world.pitchRig.rotation.x - world.config.lookSpeed * sensitivityProfile.buttonLook * delta,
-      -1.05,
-      1.05
+      -MOVEMENT_CONFIG.lookClamp,
+      MOVEMENT_CONFIG.lookClamp
     );
   }
 }
@@ -667,7 +735,9 @@ function getStableInteractTarget() {
     : null;
 
   if (currentCandidate?.isInRange) {
-    const hysteresis = isTouchDevice ? 0.9 : 0.6;
+    const hysteresis = isTouchDevice
+      ? INTERACTION_CONFIG.hysteresis.touch
+      : INTERACTION_CONFIG.hysteresis.desktop;
     if (!bestCandidate || currentCandidate.score <= bestCandidate.score + hysteresis) {
       return currentCandidate;
     }
@@ -701,7 +771,9 @@ function evaluateInteractMetrics(exhibit, output) {
   const surfaceDistance = Math.max(0, centerDistance - exhibit.colliderRadius);
   const maxSurfaceDistance =
     world.config.interactDistance +
-    (appState.nearbyExhibit?.id === exhibit.id ? 1.15 : 0.45);
+    (appState.nearbyExhibit?.id === exhibit.id
+      ? INTERACTION_CONFIG.currentTargetRangePadding.active
+      : INTERACTION_CONFIG.currentTargetRangePadding.passive);
 
   if (surfaceDistance > maxSurfaceDistance) {
     output.exhibit = exhibit;
@@ -713,7 +785,9 @@ function evaluateInteractMetrics(exhibit, output) {
   }
 
   const alignment = cameraForward.dot(toExhibit.normalize());
-  const minAlignment = isTouchDevice ? -0.2 : -0.05;
+  const minAlignment = isTouchDevice
+    ? INTERACTION_CONFIG.minAlignment.touch
+    : INTERACTION_CONFIG.minAlignment.desktop;
   if (alignment < minAlignment) {
     output.exhibit = exhibit;
     output.isInRange = false;
@@ -723,13 +797,17 @@ function evaluateInteractMetrics(exhibit, output) {
     return output;
   }
 
-  const desiredAlignment = isTouchDevice ? 0.15 : 0.5;
-  const penaltyScale = isTouchDevice ? 3.2 : 5.2;
+  const desiredAlignment = isTouchDevice
+    ? INTERACTION_CONFIG.desiredAlignment.touch
+    : INTERACTION_CONFIG.desiredAlignment.desktop;
+  const penaltyScale = isTouchDevice
+    ? INTERACTION_CONFIG.penaltyScale.touch
+    : INTERACTION_CONFIG.penaltyScale.desktop;
   const alignmentPenalty = Math.max(0, desiredAlignment - alignment) * penaltyScale;
   let score = surfaceDistance + alignmentPenalty;
 
   if (appState.nearbyExhibit?.id === exhibit.id) {
-    score -= 0.3;
+    score -= INTERACTION_CONFIG.currentTargetScoreBonus;
   }
 
   output.exhibit = exhibit;
@@ -1061,11 +1139,11 @@ function handleCanvasPointerMove(event) {
   appState.lastTouchX = event.clientX;
   appState.lastTouchY = event.clientY;
 
-  world.yawRig.rotation.y -= deltaX * 0.0058 * sensitivityProfile.touch;
+  world.yawRig.rotation.y -= deltaX * MOVEMENT_CONFIG.touchYawFactor * sensitivityProfile.touch;
   world.pitchRig.rotation.x = THREE.MathUtils.clamp(
-    world.pitchRig.rotation.x - deltaY * 0.0039 * sensitivityProfile.touch,
-    -1.05,
-    1.05
+    world.pitchRig.rotation.x - deltaY * MOVEMENT_CONFIG.touchPitchFactor * sensitivityProfile.touch,
+    -MOVEMENT_CONFIG.lookClamp,
+    MOVEMENT_CONFIG.lookClamp
   );
 }
 
@@ -1085,7 +1163,7 @@ function handlePointerLockChange() {
 
 function handleWebglContextLost(event) {
   event.preventDefault();
-  console.error("WebGL context lost. Switching to the 2D portfolio mode.");
+  warnRecoverable("WebGL context lost. Switching to the 2D portfolio mode.");
   openFallbackMode({
     hideIntro: true,
     reason: "webgl",
@@ -1098,11 +1176,11 @@ function handleDocumentMouseMove(event) {
   }
 
   const mouseScale = sensitivityProfile.mouse;
-  world.yawRig.rotation.y -= event.movementX * 0.0021 * mouseScale;
+  world.yawRig.rotation.y -= event.movementX * MOVEMENT_CONFIG.mouseYawFactor * mouseScale;
   world.pitchRig.rotation.x = THREE.MathUtils.clamp(
-    world.pitchRig.rotation.x - event.movementY * 0.00155 * mouseScale,
-    -1.05,
-    1.05
+    world.pitchRig.rotation.x - event.movementY * MOVEMENT_CONFIG.mousePitchFactor * mouseScale,
+    -MOVEMENT_CONFIG.lookClamp,
+    MOVEMENT_CONFIG.lookClamp
   );
 }
 

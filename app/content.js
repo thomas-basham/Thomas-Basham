@@ -459,15 +459,19 @@ export const portfolioContent = {
 };
 
 export function buildFallbackPortfolioContent(content = portfolioContent) {
+  const exhibits = Array.isArray(content.exhibits) ? content.exhibits : [];
   const exhibitsById = Object.fromEntries(
-    content.exhibits.map((exhibit) => [exhibit.id, exhibit])
+    exhibits.map((exhibit) => [exhibit.id, exhibit])
   );
-  const about = exhibitsById.about;
-  const skills = exhibitsById.skills;
-  const focus = exhibitsById.focus;
-  const certifications = exhibitsById.certifications;
-  const contact = exhibitsById.contact;
-  const featuredProjects = content.exhibits
+  const about = getFallbackExhibit(exhibitsById.about, "About Thomas");
+  const skills = getFallbackExhibit(exhibitsById.skills, "Core Stack");
+  const focus = getFallbackExhibit(exhibitsById.focus, "Current Focus");
+  const certifications = getFallbackExhibit(
+    exhibitsById.certifications,
+    "Certifications and Cloud Focus"
+  );
+  const contact = getFallbackExhibit(exhibitsById.contact, "Contact");
+  const featuredProjects = exhibits
     .filter((exhibit) => exhibit.type === "project")
     .sort((left, right) => {
       const rankDelta = (left.featuredRank ?? Number.MAX_SAFE_INTEGER) - (right.featuredRank ?? Number.MAX_SAFE_INTEGER);
@@ -537,5 +541,22 @@ function mapFallbackCard(exhibit, overrides = {}) {
     actions: exhibit.actions,
     accent: exhibit.accent,
     meta: exhibit.featuredTag ?? overrides.meta ?? null,
+  };
+}
+
+function getFallbackExhibit(exhibit, title) {
+  if (exhibit) {
+    return exhibit;
+  }
+
+  return {
+    id: `missing-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    zone: "Portfolio Section",
+    title,
+    kicker: "Content unavailable",
+    body: "This section is temporarily unavailable in the current content configuration.",
+    bullets: [],
+    actions: [],
+    accent: "#f4dca9",
   };
 }

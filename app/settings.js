@@ -1,5 +1,6 @@
+import { QUALITY_LEVELS } from "./config.js";
+
 const SETTINGS_STORAGE_KEY = "thomas-basham-portfolio-settings";
-const GRAPHICS_QUALITY_LEVELS = ["low", "medium", "high"];
 
 const SENSITIVITY_PROFILES = {
   low: {
@@ -49,7 +50,7 @@ export function loadExperienceSettings(isTouchDevice, prefersReducedMotion) {
         parsed.sensitivity in SENSITIVITY_PROFILES
           ? parsed.sensitivity
           : defaults.sensitivity,
-      graphicsQuality: GRAPHICS_QUALITY_LEVELS.includes(parsed.graphicsQuality)
+      graphicsQuality: QUALITY_LEVELS.includes(parsed.graphicsQuality)
         ? parsed.graphicsQuality
         : defaults.graphicsQuality,
     };

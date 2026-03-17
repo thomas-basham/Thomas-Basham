@@ -1,4 +1,5 @@
 import { THREE } from "./three.js";
+import { warnRecoverable } from "./validation.js";
 
 const TEXTURE_SCALES = {
   low: 0.55,
@@ -14,6 +15,7 @@ const TEXTURE_ANISOTROPY_CAPS = {
 
 const glowMaterialCache = new Map();
 const canvasTextureCache = new Map();
+const fallbackTextureCache = new Map();
 
 export function createMaterialPalette() {
   return {
@@ -59,10 +61,37 @@ export function createMaterialPalette() {
   };
 }
 
-export function loadTexture(textureLoader, path, maxAnisotropy, quality = "high") {
-  const texture = textureLoader.load(path);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return applyTextureQuality(texture, maxAnisotropy, quality);
+export function loadTexture(
+  textureLoader,
+  path,
+  maxAnisotropy,
+  quality = "high",
+  label = "texture"
+) {
+  const texture = createFallbackTexture(label, maxAnisotropy, quality);
+  if (!path) {
+    warnRecoverable(`${label} is missing a source path. Using a generated placeholder texture.`);
+    return texture;
+  }
+
+  textureLoader.load(
+    path,
+    (loadedTexture) => {
+      texture.image = loadedTexture.image;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.flipY = loadedTexture.flipY;
+      texture.wrapS = loadedTexture.wrapS;
+      texture.wrapT = loadedTexture.wrapT;
+      texture.needsUpdate = true;
+      applyTextureQuality(texture, maxAnisotropy, quality);
+    },
+    undefined,
+    (error) => {
+      warnRecoverable(`${label} failed to load from "${path}". Using a generated placeholder texture.`, error);
+    }
+  );
+
+  return texture;
 }
 
 export function createGlowMaterial(color, intensity) {
@@ -292,7 +321,8 @@ function createCanvasTexture({ width, height, maxAnisotropy, quality = "high", c
   textureCanvas.height = scaledHeight;
   const ctx = textureCanvas.getContext("2d");
   if (!ctx) {
-    throw new Error("Unable to create a 2D canvas context for UI textures.");
+    warnRecoverable("Unable to create a 2D canvas context for UI textures. Using a generated placeholder texture.");
+    return createFallbackTexture("ui texture", maxAnisotropy, quality);
   }
   ctx.setTransform(scaledWidth / width, 0, 0, scaledHeight / height, 0, 0);
 
@@ -316,6 +346,39 @@ function createCanvasTexture({ width, height, maxAnisotropy, quality = "high", c
 
 function getTextureAnisotropy(maxAnisotropy, quality) {
   return Math.min(TEXTURE_ANISOTROPY_CAPS[quality] ?? TEXTURE_ANISOTROPY_CAPS.medium, maxAnisotropy);
+}
+
+function createFallbackTexture(label, maxAnisotropy, quality) {
+  const cacheKey = `${label}:${quality}`;
+  if (!fallbackTextureCache.has(cacheKey)) {
+    const pixels = new Uint8Array([
+      244,
+      220,
+      169,
+      255,
+      34,
+      56,
+      63,
+      255,
+      34,
+      56,
+      63,
+      255,
+      118,
+      139,
+      143,
+      255,
+    ]);
+    const texture = new THREE.DataTexture(pixels, 2, 2, THREE.RGBAFormat);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+    texture.name = `fallback:${label}`;
+    fallbackTextureCache.set(cacheKey, applyTextureQuality(texture, maxAnisotropy, quality));
+  }
+
+  return fallbackTextureCache.get(cacheKey);
 }
 
 function colorToRgba(color, alpha) {

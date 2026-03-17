@@ -1,4 +1,5 @@
 import { THREE } from "./three.js";
+import { QUALITY_PROFILES, WORLD_CONFIG } from "./config.js";
 import {
   applyTextureQuality,
   createGlowMaterial,
@@ -10,63 +11,11 @@ import {
   loadTexture,
 } from "./render-utils.js";
 
-const WORLD_CONFIG = {
-  worldRadius: 88,
-  eyeHeight: 1.72,
-  baseFov: 72,
-  interactDistance: 7.25,
-  playerRadius: 0.92,
-  turnSpeed: 1.55,
-  lookSpeed: 1.15,
-  spawn: {
-    x: 0,
-    z: 28,
-  },
-};
-
-const QUALITY_PROFILES = {
-  low: {
-    desktopPixelRatio: 1,
-    mobilePixelRatio: 0.8,
-    desktopShadows: false,
-    fogDensity: 0.0134,
-    shadowMapSize: 0,
-    textureQuality: "low",
-    motionScale: 0.55,
-    pulseScale: 0.55,
-    ambientUpdateInterval: 1 / 24,
-    lanternLights: false,
-    landmarkLightScale: 0.72,
-  },
-  medium: {
-    desktopPixelRatio: 1.35,
-    mobilePixelRatio: 1,
-    desktopShadows: false,
-    fogDensity: 0.0125,
-    shadowMapSize: 0,
-    textureQuality: "medium",
-    motionScale: 0.78,
-    pulseScale: 0.82,
-    ambientUpdateInterval: 1 / 30,
-    lanternLights: true,
-    landmarkLightScale: 0.88,
-  },
-  high: {
-    desktopPixelRatio: 1.85,
-    mobilePixelRatio: 1.2,
-    desktopShadows: true,
-    fogDensity: 0.012,
-    shadowMapSize: 1536,
-    textureQuality: "high",
-    motionScale: 1,
-    pulseScale: 1,
-    ambientUpdateInterval: 0,
-    lanternLights: true,
-    landmarkLightScale: 1,
-  },
-};
-
 export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent }) {
+  if (!(canvas instanceof HTMLCanvasElement)) {
+    throw new Error('Expected a "#world" canvas element before creating the Three.js scene.');
+  }
+
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: !isTouchDevice,
@@ -82,7 +31,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
   scene.fog = new THREE.FogExp2(0x4f7380, 0.012);
 
   const camera = new THREE.PerspectiveCamera(
-    72,
+    WORLD_CONFIG.baseFov,
     window.innerWidth / window.innerHeight,
     0.1,
     300
@@ -99,7 +48,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
     surfaceDistance: Number.POSITIVE_INFINITY,
   };
   const instanceTransform = new THREE.Object3D();
-  const exhibits = exhibitContent.map((exhibit) => ({
+  const exhibits = (Array.isArray(exhibitContent) ? exhibitContent : []).map((exhibit) => ({
     ...exhibit,
     position: new THREE.Vector3(exhibit.position.x, 0, exhibit.position.z),
   }));
@@ -120,17 +69,30 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
   const resolvedPosition = new THREE.Vector3();
   const textures = {
     headshot: trackStaticTexture(
-      loadTexture(textureLoader, assetPaths.headshot, maxAnisotropy, worldState.graphicsQuality)
+      loadTexture(
+        textureLoader,
+        assetPaths?.headshot,
+        maxAnisotropy,
+        worldState.graphicsQuality,
+        "Headshot texture"
+      )
     ),
     badgeCloud: trackStaticTexture(
-      loadTexture(textureLoader, assetPaths.badges.cloud, maxAnisotropy, worldState.graphicsQuality)
+      loadTexture(
+        textureLoader,
+        assetPaths?.badges?.cloud,
+        maxAnisotropy,
+        worldState.graphicsQuality,
+        "AWS Cloud Practitioner badge"
+      )
     ),
     badgeArchitect: trackStaticTexture(
       loadTexture(
         textureLoader,
-        assetPaths.badges.architect,
+        assetPaths?.badges?.architect,
         maxAnisotropy,
-        worldState.graphicsQuality
+        worldState.graphicsQuality,
+        "AWS Solutions Architect badge"
       )
     ),
   };
@@ -146,7 +108,7 @@ export function createWorld({ canvas, isTouchDevice, assetPaths, exhibitContent 
   pitchRig.add(camera);
 
   camera.position.set(0, WORLD_CONFIG.eyeHeight, 0);
-  pitchRig.rotation.x = -0.08;
+  pitchRig.rotation.x = WORLD_CONFIG.initialPitch;
   playerRig.position.set(
     WORLD_CONFIG.spawn.x,
     terrainHeight(WORLD_CONFIG.spawn.x, WORLD_CONFIG.spawn.z),

@@ -5,7 +5,7 @@ export const portfolioContent = {
   },
   seo: {
     siteName: "Thomas Basham Portfolio",
-    siteUrl: "https://your-domain.com",
+    siteUrl: "https://thomasbasham.dev",
     canonicalPath: "/",
     ogImagePath: "/headshot.jpeg",
     defaultTitle: "Thomas Basham | Full Stack Developer Portfolio",

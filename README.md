@@ -21,7 +21,7 @@ const thomas = {
   languages: ["Python", "JavaScript", "TypeScript", "SQL", "Bash"],
   frameworks: ["React", "Next.js", "Node.js", "Express", "Django", "FastAPI"],
   cloud: ["AWS", "GCP", "Docker"],
-  ai: ["Codex", "Claude Code", "Gemini"],
+  ai: ["Codex", "ChatGPT", "Gemini"],
 };
 ```
 

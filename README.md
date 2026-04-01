@@ -1,15 +1,13 @@
-<h1 align="center">Hey, I'm Thomas Basham</h1>
-
-<p align="center">
-<img width="80"  src="aws-certified-cloud-practitioner.png" alt="AWS CCP badge"/> 
-<img width="80"  src="aws-certified-solutions-architect-associate.png" alt="AWS SAA badge"/> 
-</p>
+<!-- <h1 align="center">Hey, I'm Thomas Basham</h1> -->
 
 <p align="center">
   <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=24&pause=1000&color=F75C7E&center=true&vCenter=true&width=640&lines=Full+Stack+Engineer+%7C+Cloud+Developer;Python+%7C+JavaScript+%7C+TypeScript+%7C+SQL;React+%7C+Next.js+%7C+Express+%7C+Django+%7C+FastAPI;AWS+%7C+GCP+%7C+Docker;I+build+clean%2C+scalable+cloud-native+apps" alt="Typing SVG" />
 </p>
 
----
+<p align="center">
+<img width="80"  src="aws-certified-cloud-practitioner.png" alt="AWS CCP badge"/> 
+<img width="80"  src="aws-certified-solutions-architect-associate.png" alt="AWS SAA badge"/> 
+</p>
 
 ### About Me
 
@@ -32,7 +30,7 @@ const thomas = {
 | **Category**       | **Tech**                                                                                        |
 | ------------------ | ----------------------------------------------------------------------------------------------- |
 | **Frontend**       | React, Next.js, TailwindCSS, SWR, Redis                                                         |
-| **Backend**        | Node.js, Express Or Python, FastAPI/Django                                                   |
+| **Backend**        | Node.js, Express Or Python, FastAPI/Django                                                      |
 | **Cloud & DevOps** | AWS (Lambda, RDS, DynamoDB, API Gateway, IAM, CloudFormation, ECS, EC2), Docker, GitHub Actions |
 
 ---

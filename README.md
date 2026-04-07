@@ -44,7 +44,7 @@ const thomas = {
   Web app that aggregates and visualizes boat-ramp creel (angler survey) data across Puget Sound.
 
 - **[Algo Visualizer](https://github.com/thomas-basham/algo-visualizer)**  
-  Educational web app scaffold for visualizing algorithms and data structures with a feature-first architecture.
+  Educational web app for visualizing algorithms and data structures with a feature-first architecture.
 
 ---
 

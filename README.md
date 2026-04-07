@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-<img width="80"  src="aws-certified-cloud-practitioner.png" alt="AWS CCP badge"/> 
-<img width="80"  src="aws-certified-solutions-architect-associate.png" alt="AWS SAA badge"/> 
+<img width="70"  src="aws-certified-cloud-practitioner.png" alt="AWS CCP badge"/> 
+<img width="70"  src="aws-certified-solutions-architect-associate.png" alt="AWS SAA badge"/> 
 </p>
 
 ### About Me
@@ -42,6 +42,9 @@ const thomas = {
 
 - **[Puget Sound Creel Reports](https://github.com/thomas-basham/ps-creel)**  
   Web app that aggregates and visualizes boat-ramp creel (angler survey) data across Puget Sound.
+
+- **[Algo Visualizer](https://github.com/thomas-basham/algo-visualizer)**  
+  Educational web app scaffold for visualizing algorithms and data structures with a feature-first architecture.
 
 ---
 
